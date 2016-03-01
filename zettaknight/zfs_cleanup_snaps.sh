@@ -90,7 +90,7 @@ for i in $($zfs list -H -o name,creation -t snapshot | grep -w $dataset | awk '{
     sec_old=$(( $todaysecs - $snapsecs ))
     day_old=$(( $sec_old / 86400 ))
 
-    if [[ $day_old -gt $day_keep ]]; then
+    if [[ $day_old -ge $day_keep ]]; then
         $zfs destroy $snapshot
         logger -p info "$0 destroyed snapshot $snapshot because it was older than $day_keep days."
         echo "destroyed : $snapshot"
