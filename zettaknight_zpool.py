@@ -14,7 +14,7 @@ def create(*args, **kwargs):
     luks = bool(False)
     slog = bool(False)
     arg_list = list(args)
-    pool = "zfs_data"
+    pool = str(zettaknight_globs.pool_name)
     create_config = bool(False)
     ldap_flag = bool(False)
     recordsize = bool(False)

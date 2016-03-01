@@ -4,6 +4,7 @@
 
 import zettaknight_utils
 import zettaknight_globs
+import sys
 import os
 import subprocess
 import shlex
@@ -56,7 +57,7 @@ def find_versions(dataset, filename, quiet=False):
 
         if gerp_out:
             for gerp in gerp_out.split('\n'):
-                if gerp.startswith("-") or gerp.startswith("M"):
+                if gerp.startswith("-") or gerp.startswith("M") or gerp.startswith("R"):
                     gerp_list.append(gerp)
 
             if gerp_list:
@@ -99,11 +100,18 @@ def recover(snapshot, filename, relocate=None):
     ret = {}
     ret[dataset] = {}
     
-    
-    if dataset in file.split("/"):
+  
+    try:
+        if str(dataset) in str(file):
+            file = file.split(dataset, 1)[1]
+            last_ref = file.rsplit("/", 1)[1]
+    except Exception as e:
+        pass
+
+    if dataset in file.rsplit("/", 1):
         file = file.split(dataset, 1)[1]
         last_ref = file.rsplit("/",1)[1]
-    
+
     if snap not in find_snap_keys:
         try:
             raise Exception("Recoverable versions of {0} not found in dataset {1}".format(file, dataset))
@@ -114,11 +122,11 @@ def recover(snapshot, filename, relocate=None):
     
     path_list = []
     
-    if os.path.isdir("/{0}/{1}".format(dataset, file)):
+    if os.path.isdir("/{0}{1}".format(dataset, file)):
         dir_flag = True
-    
+
     for line in path_list1:
-        if line.startswith("-") or line.startswith("M"):
+        if line.startswith("-") or line.startswith("M") or line.startswith("R"):
             a, b = line.rsplit("/", 1)
             if not dir_flag:
                 try:
@@ -131,7 +139,7 @@ def recover(snapshot, filename, relocate=None):
                         
 
             else:
-                if a.startswith("-"):
+                if a.startswith("-") or line.startswith("M") or line.startswith("R"):
                     a, b = line.rsplit(dataset, 2)
                     if os.path.isdir("{0}/{1}{2}".format(snap_basedir, snap_date, b)):
                         dir_flag = True
@@ -166,19 +174,21 @@ def recover(snapshot, filename, relocate=None):
     path, dirs = p.split(file, 1)
 
     if dir_flag:
-        bad, dir_path = path_list[0].split(file, 1)
-        list_dirs = dir_path.rsplit("/", 1)
-        try:
-            out_dir = list_dirs[0]
-        except:
-            out_dir = ""
-            pass
+        a, b = path_list[0].rsplit(dataset, 2)
+        file_loc = "{0}/{1}{2}".format(snap_basedir, snap_date, b)
+        #bad, dir_path = path_list[0].split(file, 1)
+        #list_dirs = dir_path.rsplit("/", 1)
+        #try:
+        #    out_dir = list_dirs[0]
+        #except:
+        out_dir = ""
+        #    pass
         
-        file_loc = "{0}/{1}/{2}{3}/".format(snap_basedir, snap_date, file, dir_path )
-        mkdir_cmd = "/bin/mkdir {0}/{1}.R".format(active_basedir, file)
-        mkdir_run = zettaknight_utils.spawn_job(mkdir_cmd)
-        mkdir_cmd = "/bin/mkdir -p {0}/{1}.R/{2}".format(active_basedir, file, dir_path)
-        mkdir_run = zettaknight_utils.spawn_job(mkdir_cmd)
+        #file_loc = "{0}/{1}/{2}{3}/".format(snap_basedir, snap_date, file, dir_path )
+        #mkdir_cmd = "/bin/mkdir {0}/{1}.R".format(active_basedir, file)
+        #mkdir_run = zettaknight_utils.spawn_job(mkdir_cmd)
+        #mkdir_cmd = "/bin/mkdir -p {0}/{1}.R/{2}".format(active_basedir, file, dir_path)
+        #mkdir_run = zettaknight_utils.spawn_job(mkdir_cmd)
         out_path = "{0}{1}{2}.R{3}/".format(active_basedir, str(path), file, out_dir)
 
     else:
@@ -188,7 +198,7 @@ def recover(snapshot, filename, relocate=None):
     if relocate:
         out_path = relocate
     
-    rec_cmd = "/bin/cp ""-r ""{0}"" ""{1}".format(file_loc, out_path)
+    rec_cmd = "/bin/cp ""-r -p ""{0}"" ""{1}".format(file_loc, out_path)
     rec_run = zettaknight_utils.spawn_job(rec_cmd)
     rec_dict = eval(str(rec_run))
     for k,v in rec_dict.iteritems():
@@ -204,3 +214,85 @@ def recover(snapshot, filename, relocate=None):
             print("\t\tRestore failed with error: {0}".format(zettaknight_utils.printcolors(v, "FAIL")))
     
     return
+
+def audit_last_snap(dataset):
+    '''
+    '''
+    
+    snaps = {}
+    ret = {}
+    ret[dataset] = {}
+    job = inspect.stack()[0][3]
+    snaplist_run = zettaknight_utils.pipe_this2("/sbin/zfs list -r -t snapshot -o name -H {0} | tail -2".format(dataset))
+    snaplist_out = snaplist_run.stdout.read()
+    if not snaplist_out:
+        try:
+            ret[dataset][job] = {}
+            ret[dataset][job]['1'] = "No snapshots found."
+            raise Exception
+        except Exception as e:
+            return ret
+    
+    snap_list = list(snaplist_out.split())
+    if snap_list[0].startswith("cannot"):
+        try:
+            ret[dataset][job] = {}
+            ret[dataset][job]['1'] = "{0}".format(snap_list[0])
+            raise Exception
+        except Exception as e:
+            return ret
+                
+    if len(snap_list) == 2:
+        diff_cmd = "/sbin/zfs diff {0} {1} -H | cat".format(snap_list[0], snap_list[1])
+        job = "Audit of newly ingested snapshot {0}".format(snap_list[1])
+    else:
+        diff_cmd = "/sbin/zfs diff {0} -H | cat".format(snap_list[0])
+        job = "Audit of newly ingested snapshot {0}".format(snap_list[0])
+        
+    diff_run = zettaknight_utils.pipe_this2("{0}".format(diff_cmd))
+    diff_out = diff_run.stdout.read()
+        
+    if diff_out:
+        mod_count = 0
+        mod_list = ""
+        add_count = 0
+        add_list = ""
+        del_count = 0
+        del_list = ""
+        for diff in diff_out.split('\n'):
+            if diff.startswith("M"):
+                mod_count += 1
+                if mod_list:
+                    mod_list = "{0}\n\t{1}".format(mod_list, diff)
+                else:
+                    mod_list = "\t{0}".format(str(diff))
+            
+            if diff.startswith("+"):
+                add_count += 1
+                if add_list:
+                    add_list = "{0}\n\t{1}".format(add_list, diff)
+                else:
+                    add_list = "\t{0}".format(str(diff))
+                    
+            if diff.startswith("-"):
+                del_count += 1
+                if del_list:
+                    del_list = "{0}\n\t{1}".format(del_list, diff)
+                else:
+                    del_list = "\t{0}".format(str(diff))
+        
+    ret[dataset][job] = {}
+    job_out = ""
+
+    if mod_list:
+        job_out = "\nFile modifications in last ingested snapshot:\n{0}".format(mod_list)
+    if add_list:
+        job_out = "{0}\n\nNew Files in last ingested snapshot:\n{1}".format(job_out, add_list)
+    if del_list:
+        job_out = "{0}\n\nFile deletions in last ingested snapshot:\n{1}".format(job_out, del_list)
+    
+    job_out = "{0}\n\nChange counts in last ingested snapshot:\n\tModified Files: {1}\n\tNew Files: {2}\n\tDeleted Files: {3}".format(job_out, str(mod_count), str(add_count), str(del_count))
+    
+    ret[dataset][job]['0'] = job_out
+    
+    return ret
