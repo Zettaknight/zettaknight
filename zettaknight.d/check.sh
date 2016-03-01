@@ -10,6 +10,16 @@ running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 printcolors="${running_dir}/printcolors.sh"
 source $printcolors || { echo "failed to source $printcolors"; exit 1; }
 
+function check_previous () {
+    local exit_status=$?
+    local msg="$@"
+
+    if ! [ $exit_status == 0 ]; then
+        echo "${exit_status} : $@"
+        exit 1
+    fi
+}
+
 function check_pipes () {
         local pipe_exit_status=$(echo ${PIPESTATUS[*]})
         local msg="$@"
@@ -37,26 +47,18 @@ function check () {
         verbose_flag=1
 
         date=$(printcolors "yellow" "[$date_time]")
-        echo "$date $command"
+        command_out="$date $command"
+        echo "$command_out"
 
         has_pipes_flag=0
         num_pipes=$(echo $command | grep -o "|" | wc -l)
                 if [ $num_pipes -ge 1 ]; then
                         set -o pipefail
-                        eval dastring=\`${command}\`
-                        exit_status=$?
+                        eval $command
+                        check_previous eval $command
                         set +o pipefail
                 else
-                        eval dastring=\`${command}\`
-                        exit_status=$?
+                        eval $command
+                        check_previous eval $command
                 fi
-
-        if [ $exit_status == 0 ]; then
-                if [ $verbose_flag == 1 ]; then
-                        printcolors "green" "$dastring"
-                fi
-        else
-                printcolors "red" "FAILED, return code == ${exit_status}"
-                exit 1
-        fi
 }

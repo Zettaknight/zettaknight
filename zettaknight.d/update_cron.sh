@@ -25,6 +25,9 @@ REQUIRED:
         
         -d day x
         -D every x day
+		
+OPTIONAL:
+	-r cron string to replace string found in -l
 
 EOF
 }
@@ -50,12 +53,15 @@ function check_pipes () {
 }
 
 
-while getopts "l:h:H:m:M:d:D::?" OPTION
+while getopts "l:r:h:H:m:M:d:D::?" OPTION
 do
     case $OPTION in
         l)
             line="$OPTARG"
             ;;
+		r)
+			replace_line="$OPTARG"
+			;;
         h)
             cron_hours=$OPTARG
             ;;
@@ -143,7 +149,12 @@ if [[ $number_of_lines_returned -gt 1 ]]; then
 fi
       
 cron_time="${mins} ${hours} ${days} * *"
-cron_line="${cron_time} ${line}"
+
+if [ -z "$replace_line" ]; then
+	cron_line="${cron_time} ${line}"
+else
+	cron_line="${cron_time} ${replace_line}"
+fi
 
 found_string_flag=0
 

@@ -3,17 +3,21 @@
 #intended to be used with Oracle Linux / Fedora
 #    ssh_over wget -P /etc/yum.repos.d http://download.gluster.org/pub/gluster/glusterfs/LATEST/EPEL.repo/glusterfs-epel.repo
 #    ssh_over yum install glusterfs-server -y
+#firewall exception needed
+#iptables -C INPUT -p all -s $server -j ACCEPT
+
+
+#source helper functions
+running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+setopts="${running_dir}/setopts.sh"
+source $setopts || { echo "failed to source $setopts"; exit 1; }
 
 function show_help () {
 cat << EOF
 version $version
 
     DESCRIPTION:
-		$(basename $0) used to monitor zfs systems, checks multipath, xinted, and
-		zpool health check.
-
-		This utility is intended to be run as a regularly scheduled cron job and
-		must be run as root.
+        $(basename $0) is used to deploy a gluster cluster.
 
     $setopts_help
 EOF
@@ -26,15 +30,28 @@ function ssh_over () {
     #    ssh="/bin/ssh -t"
 
     if [ -z "$identity_file" ]; then
-        $ssh -q $remote_ssh "$ssh_cmd"
+        ssh -q $remote_ssh "$ssh_cmd"
     else
-        $ssh -q -i $identity_file $remote_ssh "$ssh_cmd"
+        ssh -q -i $identity_file $remote_ssh "$ssh_cmd"
     fi
 
 }
 
+function create_array_from_string () {
+    local string="$1"
+    local array_name="$2"
+    local i=0
+
+    for item in $string; do
+        eval $array_name[$i]="$item"
+        i=$(($i + 1))
+    done
+
+}
+
+
 ### necessary things ##########
-set -o nounset || set -u #error on unbound variables
+#set -o nounset || set -u #error on unbound variables
 set -o errexit || set -e #exit if any error is encountered
 set -o pipefail #make sure each output in pipestatus is checked, not just the final return
 ###############################
@@ -47,56 +64,58 @@ source $setopts || { echo "failed to source $setopts"; exit 1; }
 
 master_node="len016.zfs-snap.clemson.edu"
 #nodes=("len063.zfs-snap.clemson.edu") #all nodes to be used in gluster config other than the node executing the script
-g_vol_name="gv0" #name of the gluster volume
+g_vol_name="gv0" #defalut name of the gluster volume
 g_num_nodes=2 #number of nodes a file will be on at any one time, cannot be greater than available nodes
 master_node="$(hostname -f)"
+default_gluster_vol_name="gv0"
+user="root"
 ###############################
 
 
 ##### setopts config ##########
-setopts var "-m|--master" "master_node" "master node name if different than fdqn"
-setopts var "-s|--slave" "nodes" "slave nodes for gluster configuration"
+setopts var "-m|--mount_point" "g_mnt_point" "where the gluster volume gets mounted"
 setopts flag "-f|--firewall-exceptions" "firewall_flag" "flag to add exceptions for all gluster nodes in iptables"
+setopts var "-v|--vips" "vips" "dont' really know what to write here ATM"
+setopts var "-n|--name" "g_vol_name" "name of the gluster volume, default is $g_vol_name"
+setopts var "-p|--peers" "g_peers" "names of the boxes to be used with gluster"
+setopts var "-u|--user" "user" "username to configure each peer over ssh, default is root"
+###############################
+
+######### tests ###############
+if [[ -z "$g_mnt_point" ]] || [[ -z "$g_peers" ]]; then
+    echo " required arguments missing"
+    show_help
+    exit 1
+fi
+
 ###############################
 
 
 
 #check if g_nodes is greater than servers
-if [ $( $(( ${#nodes[@]} + 1 )) ) -lt $g_num_nodes ]; then # +1 for the master node not defined in nodes
-    echo "not enough nodes defined to allow $g_num_nodes concurrent copies"
-    exit 1
-fi
+create_array_from_string "$g_peers" "array_peers"
 
-#configure firewall exceptions
-dont_add_twice=0 #don't add the master node multiple times if more than 1 node is specified
-for server in ${nodes[@]}; do
-    #install gluster
-    remote_ssh="root@${server}"
-    remote_host="$(echo $remote_ssh | cut -d "@" -f 2)"
+#if [[ ${array_peers[$#]} -lt $g_num_nodes ]]; then # +1 for the master node not defined in nodes
+#    echo "not enough nodes defined to allow $g_num_nodes concurrent copies"
+#    exit 1
+#fi
     
-    echo -e "\nconfiguring $remote_host"
-    ssh_over service glusterd start
+echo "\ndefining peer list"
+for server in "$g_peers"; do
+    gluster peer probe "$server" #only on the master
     
-    if [ $firewall_flag == 1 ]; then
-        #add iptables excpetions for servers
-        
-        if [ $dont_add_twice != 0 ]; then
-            echo "[iptables] adding exception for $server"
-            iptables -C INPUT -p all -s $master_node -j ACCEPT
-            dont_add_twice=1
-        fi
-        
-        echo "[iptables] adding exception for $server"
-        iptables -C INPUT -p all -s $server -j ACCEPT
+    #build server argument for gluster volume creation outside loop
+    if [[ -z "$server_string" ]]; then
+        server_string="${server}:${g_mnt_point}"
+    else
+        server_string="${server}:${g_mnt_point} $server_string"
     fi
 done
+ 
+gluster volume create $g_vol_name replica $g_num_nodes $server_string force
 
-gluster peer probe "$server" #only on the master
-gluster volume create $g_vol_name replica $g_num_nodes 
-gluster volume create gv0 replica 2 mc-tst-c-02.server.clemson.edu:/test_crypt/gluster/vol mc-tst-c-03.server.clemson.edu:/test_crypt/gluster/vol
-
-echo -e "completed info for gluster volume $g_vol_name"
+echo -e "\ncompleted info for gluster volume $g_vol_name"
 gluster volume info
 
-echo -e "starting gluster volume"
+echo -e "\nstarting gluster volume"
 gluster volume start $g_vol_name

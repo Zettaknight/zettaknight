@@ -40,16 +40,16 @@ while getopts "s:m:r:a::?" OPTION
 do
          case $OPTION in
                 s)
-                    email_subject=$OPTARG
+                    email_subject="$OPTARG"
                     ;;
                 m)
-                    email_body=$OPTARG
+                    email_body="$OPTARG"
                     ;;
                 r)
-                    email_recipient=$OPTARG
+                    email_recipient="$OPTARG"
                     ;;
                 a)
-                    email_attachment=$OPTARG
+                    email_attachment="$OPTARG"
                     email_attachment_flag=1
                     ;;
                 :)
@@ -78,9 +78,8 @@ if ! which mailx &> /dev/null; then
 fi
 
 if [ -f "$email_body" ]; then
-    echo "message body cannot be a file, must be sent as an attachment using -a"
-    show_help
-    exit 1
+    echo "noticed message body is a file, using cat to display the contents of the message"
+    email_body=$(cat $email_body) #this will get executed in the following block
 fi
 
 #if [ $email_attachment_flag == 1 ]; then
@@ -89,8 +88,9 @@ fi
 #else
 
 echo "sending mail to $email_recipient"
-cat <<EOF | mailx -s "$email_subject" $email_recipient
+cat <<EOF | mailx -s "$email_subject" "$email_recipient"
 $email_body
 EOF
+check_previous "failed to send email to $email_recipient"
 
 #fi

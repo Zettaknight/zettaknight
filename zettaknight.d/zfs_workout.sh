@@ -3,6 +3,18 @@
 
 version="1.1"
 
+#source helper functions
+running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+setopts="${running_dir}/setopts.sh"
+zfs_zpool_create="${running_dir}/zfs_zpool_create.sh"
+zfs_nuke="${running_dir}/zfs_nuke.sh"
+diskperf="${running_dir}/diskperf_one_run.sh"
+
+source $setopts || { echo "failed to source $setopts"; exit 1; }
+source $zfs_zpool_create || { echo "failed to source $zfs_zpool_create"; exit 1; }
+source $zfs_nuke || { echo "failed to source $zfs_nuke"; exit 1; }
+source $diskperf || { echo "failed to source $diskperf"; exit 1; }
+
 function check () {
         local cmd="$@"
         $cmd
@@ -48,12 +60,12 @@ function test_zpool () {
     spares=$(( $total_disks - $total_disk_in_pool ))
 
     #test zpool, parse output
-    echo -e "\n${num_vols}x(${vol_str}) : ${d_file_size}GB file in $d_buffer buffer over $d_process process(es)"
+    echo -e "\n${num_vols}x(${vol_str}) : ${d_file_size} file in $d_buffer buffer over $d_process process(es)"
     echo "available_space: $usable_space ("" + $parity_space""T overhead)"
     echo "spares: $spares"
 
     sleep 10
-    speed=$(check "$diskperf -b $d_buffer -f $d_file_size -l /${zpool_name} -p $d_process -w 1 -d" | grep Aggregate | cut -d " " -f 4)
+    speed=$(check "$diskperf -b $d_buffer -f $file_size_int -l /${zpool_name} -p $d_process -w 1 -d" | grep Aggregate | cut -d " " -f 4)
     echo "throughput: $speed MB/s"
     speed_per_disk=$(echo "${speed}/${total_num_data_disks}" | bc )
     echo "speed/data_disk: $speed_per_disk MB/s"
@@ -138,18 +150,34 @@ do
         esac
 done
 
-if [ -z $d_file_size ] || [ -z $d_buffer ] || [ -z $disk_list ] || [ -z $d_process ]; then
+if [ -z "$d_file_size" ] || [ -z "$d_buffer" ] || [ -z "$disk_list" ] || [ -z "$d_process" ]; then
     echo -e "\nrequired arguments missing\n"
     show_help
     exit 1
 fi
 
-working_dir=$(pwd)
-zfs_zpool_create="${working_dir}/zfs_zpool_create.sh"
-zfs_nuke="${working_dir}/zfs_nuke.sh"
-diskperf="${working_dir}/diskperf_one_run.sh"
+
 zpool_name="generic_test_pool_name"
 total_disks=$(cat $disk_list | wc -l)
+
+
+file_size_int=$( echo "$d_file_size" | tr -d "[A-Z][a-z]" ) #remove any non-interger
+file_size_suffix=$( echo "$d_file_size" | tr -d "[0-9]" ) #MB GB KB or TB
+
+if [ "$file_size_suffix" == "KB" ] || [ "$file_size_suffix" == "k" ] || [ "$file_size_suffix" == "K" ]; then
+    file_size_int=$( echo "$file_size_int * 1024" | bc )
+elif [ "$file_size_suffix" == "MB" ] || [ "$file_size_suffix" == "m" ] || [ "$file_size_suffix" == "M" ]; then
+    file_size_int=$( echo "$file_size_int * 1024 * 1024" | bc )
+elif [ "$file_size_suffix" == "GB" ] || [ "$file_size_suffix" == "g" ] || [ "$file_size_suffix" == "G" ]; then
+    file_size_int=$( echo "$file_size_int * 1024 * 1024 * 1024" | bc )
+elif [ "$file_size_suffix" == "TB" ] || [ "$file_size_suffix" == "t" ] || [ "$file_size_suffix" == "T" ]; then
+    file_size_int=$( echo "$file_size_int * 1024 * 1024 * 1024 * 1024" | bc)
+else
+    echo "acceptable arguments for file size are KB[K][k] MB[M][m] GB[G][g] or TB[T][t], exiting"
+    show_help
+    exit 1
+fi
+
 
 trap "{ echo ctrl+c : interrupt; delete_zpool; }" INT
 

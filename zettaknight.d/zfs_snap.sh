@@ -1,7 +1,7 @@
 #!/bin/bash
 #set -x
 
-version="0.0.27"
+version="0.0.30"
 
 #source helper functions
 running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -164,10 +164,10 @@ function ssh_over () {
 
     if [ -z "$identity_file" ]; then
         $ssh -q $remote_ssh "$ssh_cmd"
-        check_previous $ssh -q $remote_ssh "$ssh_cmd"
+        #check_previous $ssh -q $remote_ssh "$ssh_cmd"
     else
         $ssh -q -i $identity_file $remote_ssh "$ssh_cmd"
-        check_previous $ssh -q -i $identity_file $remote_ssh "$ssh_cmd"
+        #check_previous $ssh -q -i $identity_file $remote_ssh "$ssh_cmd"
     fi
 
 }
@@ -269,9 +269,9 @@ function failover () {
     remote_exports=$(ssh_over cat /etc/exports)
     echo $remote_exports > $tmp_file
     sed -i s@^/${local_dataset}@#/${local_dataset}@ $tmp_file
-		check_previous sed -i s@^/${local_dataset}@#/${local_dataset}@ $tmp_file
+    check_previous sed -i s@^/${local_dataset}@#/${local_dataset}@ $tmp_file
     grep $local_dataset /etc/exports >> $tmp_file 
-		check_previous grep $local_dataset /etc/exports >> $tmp_file
+    check_previous grep $local_dataset /etc/exports >> $tmp_file
     
     cat $tmp_file | ssh_over 'cat > /etc/exports'
     check_previous "cat /tmp/remote_exports | ssh_over 'cat > /etc/exports'"
@@ -311,9 +311,15 @@ function init_snap () {
     fi
 
     if [ $protocol == "ssh" ]; then
-        $zfs send -R $snap | ssh_over "$zfs receive -F $remote_dataset"
-        check_pipes "$zfs send -R $snap | ssh_over $remote_dataset"
-        echo "Snapshot successfully shipped to $remote_host !"
+		if [[ $pull_flag == 0 ]]; then
+	        $zfs send -R $snap | ssh_over "$zfs receive -F $remote_dataset"
+    	    check_pipes "$zfs send -R $snap | ssh_over $remote_dataset"
+        	echo "Snapshot successfully shipped to $remote_host !"
+		else
+			ssh_over "$zfs send -R $remote_last_snap" | $zfs receive -F $local_dataset
+			check_pipes "ssh_over $zfs send -R $remote_last_snap | $zfs receive -F $local_dataset"
+			echo "Snapshot successfully retrieved from $remote_host !"
+		fi
     fi
 
     if [ $protocol == "nc" ]; then
@@ -344,9 +350,15 @@ function inc_snap () {
     fi
 
     if [ $protocol == "ssh" ]; then
-        $zfs send -R -I $remote_last_snap $snap | ssh_over "$zfs receive -F $remote_dataset"
-        check_pipes "$zfs send -R -I $remote_last_snap $snap | ssh_over $zfs receive $remote_dataset"
-        echo "snapshot successfully shipped to $remote_host!"
+		if [[ $pull_flag == 0 ]]; then
+	        $zfs send -R -I $remote_last_snap $snap | ssh_over "$zfs receive -F $remote_dataset"
+    	    check_pipes "$zfs send -R -I $remote_last_snap $snap | ssh_over $zfs receive $remote_dataset"
+        	echo "snapshot successfully shipped to $remote_host!"
+		else
+			ssh_over "$zfs send -R -I $last_snap_local $remote_last_snap" | $zfs receive -F $local_dataset
+			check_pipes "ssh_over $zfs send -R -I $last_snap_local $remote_last_snap | $zfs receive -F $local_dataset"
+			echo "Snapshot successfully retrieved from $remote_host !"
+		fi
     fi
 }
 
@@ -379,6 +391,7 @@ setopts var "-i|--id_file" "identity_file" "RSA identity file to use when initia
 setopts flag "-e|--encrypt" "encrypt_flag" "this option will flag zettaknight to use the ssh protocol for replication"
 setopts flag "-f|--failover" "failover_flag" "Initiates a controlled failover to remote target, in addition to taking and replicating a new snapshot"
 setopts flag "-r|--replicate_only" "replicate_only_flag" "Replicates current snaps to remote ssh target without first taking a new snap."
+setopts flag "-p|--pull" "pull_flag" "Replicates last snapshot from remote server to local server (pull replication instead of traditional push replication).  -r must also be specified."
 setopts flag "-h|--help" "display_help_flag" "Shows this help dialogue."
 
 if [ $display_help_flag == 1 ]; then
@@ -416,6 +429,8 @@ fi
 remote_host=$(echo ${remote_ssh} | cut -d "@" -f2)
 if [ -z "$remote_host" ]; then
     echo "remote host is empty, -s should be in the format of <user>@<hostname>, recieved: $remote_ssh"
+	show_help
+	clean_up
     exit 1
 fi
 
@@ -480,6 +495,13 @@ if [[ -z "$remote_ssh" ]] && [[ $failover_flag == 1 ]]; then
     exit 1
 fi
 
+if [[ $replicate_only_flag == 0 ]] && [[ $pull_flag == 1 ]]; then
+	echo -e "Replicate only (-r) must be specified when requesting snapshot retrieval (pull, -p)."
+	show_help
+	clean_up
+	exit 1
+fi
+
 #if the lock file exists, then another instance is already running, exit.  Else create
 #the lock file and continue
 if [ -f "$lock_file" ]; then
@@ -505,11 +527,19 @@ fi
 if [ $replicate_only_flag == 0 ]; then
     create_snap
 else
-    echo "$(hostname) is not the primary, syncing snapshots to $remote_host"
-    snap="$last_snap_local"
+    if [[ $pull_flag == 0 ]]; then
+		echo "$(hostname) is not the primary, syncing snapshots to $remote_host"
+	else
+		echo "$(hostname) is not the primary, retrieving snapshots from $remote_host"
+	fi
+	snap="$last_snap_local"
     if [[ "$snap" == "$remote_last_snap" ]]; then
         send_flag=1
-        echo "Remote server is already up to date!  No snaps to send."
+		if [[ $pull_flag == 0 ]]; then
+	        echo "Remote server is already up to date!  No snaps to send."
+		else
+			echo "Local server is already up to date!  No snaps to retrieve."
+		fi
     fi
 fi
 
@@ -530,15 +560,23 @@ fi
 
 #Verify dataset structure exists on remote host
 #check remote dataset, if remote dataset does not exist, create it
-if ! ssh_over $zfs list $remote_dataset &> /dev/null; then
-		echo "creating remote dataset $remote_dataset on $remote_host"
-    ssh_over $zfs create -p $remote_dataset
-    check_previous ssh_over $zfs create -p $remote_dataset
-    ssh_over logger -p info 'new zfs dataset created by remote process'
-    echo "created $remote_dataset on $remote_host"
-    sudo logger -p info "$0 created $remote_dataset on $remote_host"
+echo "checking to see if $remote_dataset exists on $remote_host"
+if ! ssh_over $zfs list $remote_dataset > /dev/null; then
+	if [[ $pull_flag == 0 ]]; then
+	    echo "creating remote dataset $remote_dataset on $remote_host"
+    	ssh_over $zfs create -p $remote_dataset
+    	check_previous ssh_over $zfs create -p $remote_dataset
+    	ssh_over logger -p info 'new zfs dataset created by remote process'
+    	echo "created $remote_dataset on $remote_host"
+    	sudo logger -p info "$0 created $remote_dataset on $remote_host"
+	else
+		echo "$remote_dataset does not exist on ${remote_host}.  Cannot retrieve last snapshot."
+		clean_up
+		exit 1
+	fi
+else
+    echo "$remote_dataset exists on $remote_host"
 fi
-
 
 
 if [ $encrypt_flag == 0 ]; then #Set transfer protocol based on encryption setting
@@ -549,12 +587,15 @@ else
 fi
 
 #If remote server has previous snaps, send an incremental, otherwise send a full
-if [ -z $remote_last_snap ]; then
-    init_snap $xfer
+
+if [[ $pull_flag == 0 ]] && [ -z $remote_last_snap ]; then
+   	init_snap $xfer
+elif [[ $pull_flag == 1 ]] && [ -z $last_snap_local ]; then
+	init_snap $xfer
 else
-    if [[ $send_flag == 0 ]]; then
-        inc_snap $xfer
-    fi
+   	if [[ $send_flag == 0 ]]; then
+       	inc_snap $xfer
+   	fi
 fi
 
 if [ $failover_flag == 1 ]; then
