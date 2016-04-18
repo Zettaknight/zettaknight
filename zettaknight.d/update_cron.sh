@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 version="1.0"
 function show_help () {
@@ -25,16 +43,16 @@ REQUIRED:
         
         -d day x
         -D every x day
-		
+                
 OPTIONAL:
-	-r cron string to replace string found in -l
+        -r cron string to replace string found in -l
 
 EOF
 }
 
 function check_pipes () {
     local pipe_exit_status=$(echo ${PIPESTATUS[*]})
-	local msg="$@"
+        local msg="$@"
     n=1
     for i in $pipe_exit_status; do
         if ! [ $i == 0 ]; then
@@ -59,9 +77,9 @@ do
         l)
             line="$OPTARG"
             ;;
-		r)
-			replace_line="$OPTARG"
-			;;
+                r)
+                        replace_line="$OPTARG"
+                        ;;
         h)
             cron_hours=$OPTARG
             ;;
@@ -151,9 +169,9 @@ fi
 cron_time="${mins} ${hours} ${days} * *"
 
 if [ -z "$replace_line" ]; then
-	cron_line="${cron_time} ${line}"
+        cron_line="${cron_time} ${line}"
 else
-	cron_line="${cron_time} ${replace_line}"
+        cron_line="${cron_time} ${replace_line}"
 fi
 
 found_string_flag=0

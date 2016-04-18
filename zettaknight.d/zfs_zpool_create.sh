@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 version="0.0.21"
 #set -x
@@ -31,7 +49,7 @@ slog_flag=0
 ##########################################################################
 ashift_val=9 #default 0 is auto-detect, advanced 4k sector drives will be 12, CANNOT be empty
 zpool_autoreplace="on" #must be exactly on or off, no exceptions
-compression="off" #"on", "off", "lzjb", "lz4", "gzip", "gzip[1-9]", and "zle"
+compression="lz4" #"on", "off", "lzjb", "lz4", "gzip", "gzip[1-9]", and "zle"
 record_size=1M
 aclinherit="restricted"
 acltype="off"

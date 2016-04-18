@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 #set -x
 
 version="1.1"
@@ -11,22 +29,12 @@ zfs_nuke="${running_dir}/zfs_nuke.sh"
 diskperf="${running_dir}/diskperf_one_run.sh"
 
 source $setopts || { echo "failed to source $setopts"; exit 1; }
-source $zfs_zpool_create || { echo "failed to source $zfs_zpool_create"; exit 1; }
-source $zfs_nuke || { echo "failed to source $zfs_nuke"; exit 1; }
-source $diskperf || { echo "failed to source $diskperf"; exit 1; }
 
-function check () {
-        local cmd="$@"
-        $cmd
-        exit_status=$?
-        if ! [ $exit_status == 0 ]; then
-            echo "${exit_status} : $cmd"
-            exit 1
-        fi
-}
+#exit on error
+set -e
 
 function delete_zpool () {
-    check "$zfs_nuke -p $zpool_name -f" > /dev/null
+    $zfs_nuke -p $zpool_name -f > /dev/null
 }
 
 function test_zpool () {
@@ -39,7 +47,7 @@ function test_zpool () {
     fi
 
     #create the zpool
-    check "$zfs_zpool_create -p $zpool_name -f $disk_list -d $data_disks -z $raidz" > /dev/null
+    $zfs_zpool_create -p $zpool_name -f $disk_list -d $data_disks -z $raidz > /dev/null
 
     #gather info about the zpool
     usable_space=$(zfs get available -o value -H)
@@ -65,13 +73,19 @@ function test_zpool () {
     echo "spares: $spares"
 
     sleep 10
-    speed=$(check "$diskperf -b $d_buffer -f $file_size_int -l /${zpool_name} -p $d_process -w 1 -d" | grep Aggregate | cut -d " " -f 4)
+    
+    #convert bytes to gigabytes for diskperf_one_run.sh function, need to change implementation so conversion is not necessary
+    file_size_gb=$( echo "$file_size_int / 1024 / 1024 / 1024" | bc )
+    
+    diskperf_out=$($diskperf -b "$d_buffer" -f "$file_size_gb" -l "/${zpool_name}" -p "$d_process" -w 1 -d)
+    speed=$(echo "$diskperf_out" | grep Aggregate | cut -d " " -f 4)
+    
     echo "throughput: $speed MB/s"
     speed_per_disk=$(echo "${speed}/${total_num_data_disks}" | bc )
     echo "speed/data_disk: $speed_per_disk MB/s"
 
     if [ $create_flag == 1 ]; then
-        tx=$(check "$diskperf -c -l /${zpool_name} -d" | grep Aggregate | cut -d " " -f 9)
+        tx=$($diskperf -c -l "/${zpool_name}" -d | grep "Aggregate" | cut -d " " -f 9)
         creates=$(echo "$tx / 2" | bc)
         echo "File creations (1,000,000 files): $creates /sec"
     fi

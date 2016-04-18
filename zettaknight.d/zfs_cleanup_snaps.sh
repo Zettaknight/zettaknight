@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 version="0.0.12"
 
@@ -24,12 +42,12 @@ EOF
 }
 
 function check_previous () {
-		local exit_status=$?
-		if ! [ $exit_status == 0 ]; then
-			echo "${exit_status} : $@"
-			clean_up
-			exit 1
-		fi
+                local exit_status=$?
+                if ! [ $exit_status == 0 ]; then
+                        echo "${exit_status} : $@"
+                        clean_up
+                        exit 1
+                fi
 }
 
 function ssh_over () {
@@ -94,8 +112,8 @@ for i in $($zfs list -H -o name,creation -t snapshot | grep -w $dataset | awk '{
         $zfs destroy $snapshot
         logger -p info "$0 destroyed snapshot $snapshot because it was older than $day_keep days."
         echo "destroyed : $snapshot"
-#	else
-#		echo "$snapshot is $day_old day(s) old, this does not exceed the limit of $day_keep day(s)"
+#        else
+#                echo "$snapshot is $day_old day(s) old, this does not exceed the limit of $day_keep day(s)"
     fi
 
 done

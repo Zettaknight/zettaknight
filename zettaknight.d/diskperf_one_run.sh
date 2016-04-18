@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 read_flag=0
 write_flag=0
@@ -12,9 +30,9 @@ create_flag=0
 function clean_up () {
         #remove dummy files after records have been recorded
         cd
-    if [ -e $diskperf_test_location ]; then
+    if [ -e "$diskperf_test_location" ]; then
         echo "removing $diskperf_test_location"
-        ${rm_path} -rf ${diskperf_test_location}
+        ${rm_path} -rf "${diskperf_test_location}"
         if [ $? -ne 0 ]; then
             echo "$? : {rm_path} -rf ${diskperf_test_location}"
             echo "$diskperf_test_location will need to be removed manually"
@@ -69,9 +87,11 @@ function install_diskperf () {
         check_previous "cd ${download_loc}/diskperf-code/ && make"
         mv ${download_loc}/diskperf-code/diskperf /usr/bin/
         check_previous "mv ${download_loc}/diskperf-code/diskperf /usr/bin/"
-        rm -rf $download_loc
-        check_previous "rm -rf $download_loc"
-        echo "removed $download_loc"
+        if [ -e "$download_loc" ]; then
+            rm -rf "$download_loc"
+            check_previous "rm -rf $download_loc"
+            echo "removed $download_loc"
+        fi
     else
         echo "user does not want to continue"
         exit 1

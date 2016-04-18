@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 #set -x
 
 #source helper functions
@@ -78,7 +96,7 @@ find_call "ssh"
 
 if ! [[ $remote_user == "root" ]]; then #if remote user is not root, then assign a pseudo tty
     ssh="$ssh -t"
-	zfs="sudo $zfs"
+        zfs="sudo $zfs"
 fi
 
 if [[ -z "$local_dataset" ]] || [[ -z "$remote_ssh" ]]; then
@@ -86,19 +104,6 @@ if [[ -z "$local_dataset" ]] || [[ -z "$remote_ssh" ]]; then
     show_help
     exit 1
 fi
-
-
-
-################## check last snapshots ##########################
-##################################################################
-remote_snap=$(ssh_over $zfs list -o name -t snapshot -H | grep "${remote_dataset}@" | tail -n 1)
-remote_last_snap=$(echo "$remote_snap" | tr -d '\r')
-num_remote_snaps=$(ssh_over $zfs list -o name -t snapshot -H | wc -l)
-local_last_snap=$($zfs list -o name -t snapshot -H | grep ${remote_dataset}@ | tail -1)
-num_local_snaps=$($zfs list -o name -t snapshot -H | wc -l)
-##################################################################
-##################################################################
-
 
 ##################### create lockfile ############################
 ##################################################################
@@ -114,9 +119,24 @@ trap "{ rm -f $lock_file_path; exit; }" INT TERM EXIT
 ##################################################################
 ##################################################################
 
+################## check last snapshots ##########################
+##################################################################
+remote_snap=$(ssh_over $zfs list -o name -t snapshot -H | grep "${remote_dataset}@" | tail -n 1)
+remote_last_snap=$(echo "$remote_snap" | tr -d '\r')
+#num_remote_snaps=$(ssh_over $zfs list -o name -t snapshot -H | wc -l)
+local_last_snap=$($zfs list -o name -t snapshot -H | grep ${remote_dataset}@ | tail -1)
+#num_local_snaps=$($zfs list -o name -t snapshot -H | wc -l)
+##################################################################
+##################################################################
+
 ###################### non pull request ##########################
 ##################################################################
 if [[ "$pull_flag" == 0 ]]; then
+
+    if [ -z "$local_last_snap" ]; then
+        echo "no snapshots exist, nothing to do"
+        exit 0
+    fi
 
     echo "syncing snapshots to $remote_host:"
 
@@ -126,8 +146,8 @@ if [[ "$pull_flag" == 0 ]]; then
         ssh_over logger -p info 'new zfs dataset created by remote process'
         echo "created $remote_dataset on $remote_host"
         sudo logger -p info "$0 created $remote_dataset on $remote_host"
-	else
-		echo "$remote_dataset exists, moving on"
+        else
+                echo "$remote_dataset exists, moving on"
     fi
 
     if [[ -z "$remote_last_snap" ]]; then #if no remote snapshot exists for dataset, then send them all
@@ -141,12 +161,12 @@ if [[ "$pull_flag" == 0 ]]; then
             echo "snapshot successfully shipped to $remote_host!"
         else
             echo "$local_last_snap is the last snapshot on both systems"
-            if ! [[ "$num_local_snaps" == "$num_remote_snaps" ]]; then
-                echo "ERROR: $num_local_snaps snapshot(s) locally --- $num_remote_snaps snapshot(s) on ${remote_host}"
-                exit 1
-            else
-                echo "there are $num_local_snaps on both machines, filesystems are in sync"
-            fi
+            #if ! [[ "$num_local_snaps" == "$num_remote_snaps" ]]; then
+            #    echo "ERROR: $num_local_snaps snapshot(s) locally --- $num_remote_snaps snapshot(s) on ${remote_host}"
+            #    exit 1
+            #else
+            #    echo "there are $num_local_snaps on both machines, filesystems are in sync"
+            #fi
         fi
     fi
 fi
@@ -176,16 +196,16 @@ if [[ "$pull_flag" == 1 ]]; then
     else
         if ! [[ "$remote_last_snap" == "$local_last_snap" ]]; then
             ssh_over $zfs send -R -I "$local_last_snap" "$remote_last_snap" | $zfs receive -F $local_dataset
-			check_pipes "failed to pull incremental snapshot"
-			echo "Snapshot successfully retrieved from $remote_host !"    
+                        check_pipes "failed to pull incremental snapshot"
+                        echo "Snapshot successfully retrieved from $remote_host !"    
         else
             echo "$local_last_snap is the last snapshot on both systems"
-            if ! [[ "$num_local_snaps" == "$num_remote_snaps" ]]; then
-                echo "ERROR: $num_local_snaps snapshot(s) locally --- $num_remote_snaps snapshot(s) on ${remote_host}"
-                exit 1
-            else
-                echo "there are $num_local_snaps on both machines, filesystems are in sync" 
-            fi
+            #if ! [[ "$num_local_snaps" == "$num_remote_snaps" ]]; then
+            #    echo "ERROR: $num_local_snaps snapshot(s) locally --- $num_remote_snaps snapshot(s) on ${remote_host}"
+            #    exit 1
+            #else
+            #    echo "there are $num_local_snaps on both machines, filesystems are in sync" 
+            #fi
         fi
     fi
 fi
