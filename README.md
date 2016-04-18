@@ -8,4 +8,4 @@ We are working toward a stable first release.  The utility is usable in its curr
 #### License
 Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
 
-Zettaknight is licensed unde GPL v3.  A copy of the license is included in the repository as LICENSE.md.
+Zettaknight is licensed under GPL v3.  A copy of the license is included in the repository as LICENSE.md.
