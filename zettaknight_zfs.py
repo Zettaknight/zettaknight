@@ -1,4 +1,22 @@
 #!/usr/bin/python
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 # -*- coding: utf-8 -*-
 # Import python libs
  
@@ -6,10 +24,12 @@ import inspect
 import re
 import sys
 import fileinput
+import os
  
 #from zettaknight import *
 import zettaknight_utils
 import zettaknight_globs
+import zettaknight_zpool
  
 def nuke(pool, force=True):
     '''
@@ -24,6 +44,56 @@ def nuke(pool, force=True):
     ret[pool]['Nuke Zpool'] = zettaknight_utils.spawn_job(nuke_cmd)
     #zettaknight_utils.parse_output(ret)
  
+    return ret
+    
+def zfs_maintain(dset=False):
+    '''
+    The zfs_maintain function reads in dataset and maintenance requirements from /opt/clemson/zfs_scripts/maintain.conf
+
+    Accepted configuration keys are:
+
+        - remote_server
+        - retention
+        - reservation
+        - quota
+        - user
+        - contact
+
+    '''
+    
+    ret = {}
+    protocol = "ssh"
+    
+    if dset and str(dset) not in zettaknight_globs.zfs_conf.iterkeys():
+        ret[dset] = {}
+        ret[dset]['zfs maintain'] = {1: "{0} is not a Zettaknight controlled dataset.".format(dset)}
+        #zettaknight_utils.parse_output(ret)
+        return ret
+    
+    for dataset in zettaknight_globs.zfs_conf.iterkeys():
+        if dset:
+            if str(dset) != str(dataset):
+                continue
+                
+        ret[dataset] = {}
+        ret[dataset]['Cleanup'] = cleanup_snaps(dataset, zettaknight_globs.zfs_conf[dataset]['retention'])
+        if zettaknight_globs.zfs_conf[dataset]['quota']:
+            ret[dataset]['Quota'] = set_quota(dataset, zettaknight_globs.zfs_conf[dataset]['quota'])
+
+        if zettaknight_globs.zfs_conf[dataset]['refquota']:
+            ret[dataset]['Refquota'] = set_refquota(dataset, zettaknight_globs.zfs_conf[dataset]['refquota'])
+
+        if zettaknight_globs.zfs_conf[dataset]['reservation']:
+            ret[dataset]['Reservation'] = set_reservation(dataset, zettaknight_globs.zfs_conf[dataset]['reservation'])
+
+        if zettaknight_globs.zfs_conf[dataset]['refreservation']:
+            ret[dataset]['Refreservation'] = set_refreservation(dataset, zettaknight_globs.zfs_conf[dataset]['refreservation'])
+        
+        if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
+            ret[dataset]['snapshot'] = create_snap(dataset, "quiet")
+
+    #print(ret)
+    #parse_output(ret)
     return ret
  
 def failover(dataset, remote_server=False):
@@ -435,58 +505,92 @@ def check_usage(dset=False, quiet=False):
                 ret[dataset]['Check Usage']['0'] = b
     
     return ret
- 
- 
-def add_dataset(*args, **kwargs):
+
+def build_out_config(force=False):
+    
+    
+    '''
+    This function reads in the pool config file and creates the zfs data structures defined in it
+    '''
+    
+    ret = {}
+    ret[zettaknight_globs.fqdn] = {}
+    ret[zettaknight_globs.fqdn]['Build Config'] = {}
+    create_config = {}
+    create_config['create_config'] = False
+    create_config['nfs'] = False
+    
+    try:
+        #create pools defined in zpool conf
+        if zettaknight_globs.zpool_conf:
+            for zpool in zettaknight_globs.zpool_conf.iterkeys():
+                d = zettaknight_utils.spawn_job("/sbin/zpool list -H '{0}'".format(zpool))
+                chk_code, chk_msg = d.popitem()
+                if int(chk_code) is not 0:
+                    ret[zettaknight_globs.fqdn]['Create {0}'.format(zpool)] = {}
+                    out1 = zettaknight_zpool.create_zpool(zpool, **zettaknight_globs.zpool_conf[zpool])
+                    ret[zettaknight_globs.fqdn]['Create {0}'.format(zpool)] = out1[zpool]['Create Zpool']       
+        
+        #print(ret)
+        #create datasets defined in zfs_conf
+        for dataset in zettaknight_globs.zfs_conf.iterkeys():
+            d = zettaknight_utils.spawn_job("/sbin/zfs list -H '{0}'".format(dataset))
+            chk_code, chk_msg = d.popitem()
+            if int(chk_code) is not 0:
+                add_dataset(dataset, **create_config)
+            
+        ret[zettaknight_globs.fqdn]['Build Config']['0'] = "Everything Looks Okay Here"
+    
+    except Exception as e:
+        print(zettaknight_utils.printcolors(e, "FAIL"))
+        ret[zettaknight_globs.fqdn]['Build Config']['1'] = e
+        
+    return ret
+
+def add_dataset(dataset, **kwargs):
     '''if create_config=True is passed, a configuration file
     will be created for the dataset passed in to this function'''
- 
- 
-    #kwargs = {}
-    arg_list = list(args)
- 
-    #kwargs = zettaknight_utils.create_kwargs_from_args(arg_list)
-    #print("This is kwargs : {0}".format(kwargs))
- 
-    for arg in arg_list[0:]:
-        if "=" in arg:
-            k, v = arg.split("=", 1)
-            kwargs[k] = v
-            arg_list.remove(arg)
- 
-    dataset = arg_list[0]
+    
     ret = {}
-    ret[dataset] = {}
+    ret[zettaknight_globs.fqdn] = {}
+    question = False
+    if 'create_config' in kwargs.iterkeys():
+        create_config = kwargs['create_config']
+    else:
+        create_config = True
+    if 'nfs' in kwargs.iterkeys():
+        nfs = kwargs['nfs']
+    else:
+        nfs = True    
+    #append dataset to kwargs
+    if dataset:
+        kwargs['dataset'] = dataset
     
     gerp_run = zettaknight_utils.pipe_this2("zfs list | /bin/grep {0}".format(dataset))
     gerp_out = gerp_run.stdout.read()
-    
-    
-    if 'create_config' not in kwargs.iterkeys():
-        kwargs['create_config'] = True
         
-    if kwargs['create_config'] == 'False':
-        kwargs['create_config'] == False
-        
-    if kwargs['create_config']:
-        print(zettaknight_utils.printcolors("\nWill create {0} after completion of config file\n".format(dataset), "OKGREEN"))
-        conf_dict = {'dataset' : dataset}
-        zettaknight_utils.create_config(**conf_dict)
-    
+    #print(zettaknight_utils.printcolors("\nWill create {0} after completion of config file\n".format(dataset), "OKGREEN"))
+
+
+    if create_config:
+        ret[zettaknight_globs.fqdn]['Create Config'] = {}
+        out1 = zettaknight_utils.create_config(**kwargs)
+        ret[zettaknight_globs.fqdn]['Create Config'] = out1[zettaknight_globs.fqdn]['Create Config']
+
     #create dataset after commit of file
     if int(gerp_run.returncode) is not 0:
         create_cmd = "zfs create -p {0}".format(dataset)
         create_run = zettaknight_utils.spawn_job(create_cmd)
-        ret[dataset]['add_dataset'] = create_run
+        ret[zettaknight_globs.fqdn]['add_dataset'] = create_run
     else:
-        ret[dataset]['add_dataset'] = {'0' : "{0} exists".format(dataset)}
-        
-    question = zettaknight_utils.query_yes_no("Would you like to create an NFS share for: {0}".format(dataset))
+        ret[zettaknight_globs.fqdn]['add_dataset'] = {'0' : "{0} exists".format(dataset)}
+    
+    if nfs:    
+        question = zettaknight_utils.query_yes_no("Would you like to create an NFS share for: {0}".format(dataset))
     if question:
         nfs_share = zettaknight_utils.query_return_item("Where would you like to share it? <i.e 10.20.30.1/24 or my.server>")
-        zettaknight_utils.sharenfs(dataset, nfs_share)
- 
-    #zettaknight_utils.parse_output(ret)
+        ret[zettaknight_globs.fqdn]['NFS'] = {}
+        ret[zettaknight_globs.fqdn]['NFS'] = zettaknight_utils.sharenfs(dataset, nfs_share)
  
     return ret
  
@@ -571,6 +675,7 @@ def zfs_monitor(email_recipients, protocol=False):
  
     ret = {}
     ret[zettaknight_globs.fqdn] = {}
+    zettaknight_globs.mm_flag = True
  
     protocol = "ssh"
  
@@ -581,7 +686,7 @@ def zfs_monitor(email_recipients, protocol=False):
     monitor_cmd = "bash {0} -r \"{1}\" -p \"{2}\"".format(zettaknight_globs.zfs_monitor_script, email_recipients, protocol)
     ret[zettaknight_globs.fqdn]['Monitor ZFS System Health'] = zettaknight_utils.spawn_job(monitor_cmd)
  
-    zettaknight_utils.parse_output(ret)
+    #zettaknight_utils.parse_output(ret)
  
     return ret
  
@@ -637,3 +742,31 @@ def check_group_quota(group):
             ret = "{0}:\t{4} available of {1} purchased. (Active User Data: {2}, Data in Snapshots: {3})".format(group, purchased, dset_used, snap_used, free_size)
  
     return ret
+    
+def generate_perf_stats(**kwargs):
+    '''
+    '''
+    
+    ret = {}
+    ret[zettaknight_globs.fqdn] = {}
+    ret[zettaknight_globs.fqdn]['Perf Stats'] = {}
+    
+    if zettaknight_globs.help_flag:
+        help = """Performance Stats:
+
+    Function to generate iostat data from defined zpools"""
+    
+        return help
+        
+    if not os.path.isdir(zettaknight_globs.zpool_perf_dir):
+        os.mkdir(zettaknight_globs.zpool_perf_dir)
+    
+    if zettaknight_globs.zpool_iostat_file:
+        perf_cmd = "bash {0} -f /{1}".format(zettaknight_globs.perf_stats_script, zettaknight_globs.zpool_iostat_file)
+        ret[zettaknight_globs.fqdn]['Perf Stats'] = zettaknight_utils.spawn_job(perf_cmd)
+    else:
+        ret[zettaknight_globs.fqdn]['Perf Stats']['1'] = "{0} is not defined, cannot continue".format(zettaknight_globs.zpool_iostat_file)
+    
+    return ret
+    
+    

@@ -1,4 +1,22 @@
 #!/usr/bin/python
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 # -*- coding: utf-8 -*-
  
  
@@ -10,15 +28,15 @@ pool_name = "zfs_data"
 zpool_ashift = 9 #ashift value should be 9 for 512 byte sector disks, 12 for 4k byte disks
 zpool_disk_list = "/tmp/disk_list.txt" #list of disks separated by newline to be used in zpool creation
  
-#zfs dataset definition for store information for zettaknight, config files and keys will reside here
-zettaknight_store = "{0}/zettaknight".format(pool_name)
- 
 #if no contact information is provided within the configuration file
 #zettaknight will contact this/these address(es) by default
 #multiple entires should be separated by a space
 default_contact_info = "zfs_admin@lists.clemson.edu"
  
- 
+#Optional MatterMost webhook integration
+mm_flag = False
+mm_webhook = "https://cu-inf-p-mtm01.clemson.edu/hooks/7fpq155hrtfqfb5hfs64eo71oa"
+mm_icon = "https://cu-inf-p-mtm01.clemson.edu/static/images/zettaknight.png"
  
 ###############################################################################################
 ################## DO NOT MODIFY ANYTHING BELOW THIS LINE #####################################
@@ -36,16 +54,20 @@ import datetime
  
  
 #zettaknight's current version
-version = "0.0.6" 
+version = "0.0.9" 
  
 #version of python required by zettaknight
 required_python_version = "2.x"
  
 #variable to determine the fully qualified domain name of the system
 fqdn = socket.getfqdn()
+
+#zfs dataset definition for store information for zettaknight, config files and keys will reside here
+zettaknight_store = "{0}/zettaknight/{1}".format(pool_name, fqdn)
  
 #determines the current date
 today_date = str(datetime.datetime.today().strftime('%Y%m%d_%H%M'))
+today_date2 = str(datetime.datetime.today().strftime('%Y%m%d'))
  
 #the following sets the directory this file is in as the base for where all
 #other files necessary for zettaknight are referenced
@@ -65,6 +87,7 @@ conf_dir_final = os.path.dirname("/{0}".format(zettaknight_store)) #add leading 
  
 #crypt_dir = os.path.dirname("{0}/.zettaknight.crypt/".format(base_dir))
 crypt_dir = "/root/.ssh/.zettaknight_crypt"
+luks_header_dir = "{0}/luks_header_backups".format(crypt_dir)
  
 #the identity file is the name of the key used for luks and ssh communication for zettaknight
 identity_file = "{0}/zettaknight.id".format(crypt_dir)
@@ -74,13 +97,22 @@ identity_file = "{0}/zettaknight.id".format(crypt_dir)
  
 #the config file is a yaml file used in all processes of zettaknight.  This sets the configuration
 #on which zettaknight does it automated processes.
- 
+
+default_config_file = "{0}/default_conf_file.yml".format(conf_dir)
 config_file = "{0}/{1}.conf".format(conf_dir, fqdn)
 config_file_new = "{0}/{1}.conf".format(conf_dir_new, fqdn)
 
-#cron.d file
+default_pool_config_file = "{0}/default_pool_conf_file.yml".format(conf_dir)
+pool_config_file = "{0}/{1}_zpool.conf".format(conf_dir_new, fqdn)
 
-crond_file = "/etc/cron.d/{0}_zettaknight".format(fqdn)
+#cron.d files
+crond_primary = "/etc/cron.d/{0}_primary_datasets".format(fqdn)
+crond_secondary = "/etc/cron.d/{0}_secondary_datasets".format(fqdn)
+crond_zettaknight = "/etc/cron.d/zettaknight"
+
+#stats file
+zpool_perf_dir = "/{0}/zettaknight_stats".format(zettaknight_store)
+zpool_iostat_file = "{0}/{1}_zpool_iostat_file".format(zpool_perf_dir, today_date2)
  
 #############################################################################################
 #############################################################################################
@@ -102,12 +134,14 @@ zfs_monitor_script = "{0}/zfs_monitor.sh".format(script_dir)
 cifs_share_script = "{0}/zfs_cifs_add_share.sh".format(script_dir)
 sync_script = "{0}/sync.sh".format(script_dir)
 hpnssh_script = "{0}/hpnssh.sh".format(script_dir)
+perf_stats_script = "{0}/zfs_data_generator.sh".format(script_dir)
  
 #default flags for varius functions in zettaknight's entry_point
  
 mail_flag = False
 mail_error_flag = False
 nocolor_flag = False
+help_flag = False
  
 #default names for zpools and cifs/nfs datasets
 cifs_dset_suffix = "cifs"
@@ -117,3 +151,4 @@ nfs_dset_suffix = "nfs"
 #############################################################################################
  
 zfs_conf = {}
+zpool_conf = {}

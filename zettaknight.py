@@ -1,4 +1,22 @@
 #!/usr/bin/python
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 # -*- coding: utf-8 -*-
 # Import python libs
 
@@ -8,6 +26,8 @@ import zettaknight_globs
 import os
 import shutil
 import argparse
+import types
+import inspect
 from zettaknight_zpool import *
 from zettaknight_utils import *
 from zettaknight_zfs import *
@@ -26,137 +46,114 @@ def argparsing():
     
     
     return
+
+def help(methods, *args):
     
-def first_run():
+    ignore_list = [ 'pipe_this2', 'strip_input', 'mm_post', 'printcolors', 'pipe_this', 'mail_out', 'argparsing', 'replace_string', 'query_yes_no', 'parse_output', 'create_store', 'check_quiet', 'create_kwargs_from_args', 'query_return_list', 'query_return_item', 'spawn_job', 'update_crond', 'update_cron' ]
+    command_list = []
+    cmd_out = "Zettaknight includes the following callable methods.  To get information about a specific command,run \nzettaknight help <command>\n\n"
+    for name in methods.keys():
+        if isinstance(methods[name], types.FunctionType):
+            if name not in ignore_list:
+                command_list.append(name)
     
     ret = {}
-    arg_dict = {}
+    ret['Zettaknight'] = {}
+    if len(args) > 1:
+        if str(args[1]) in command_list:
+            cmd_out = "{0}Displaying help for subcommand: {1}".format(cmd_out, str(args[1]))
+            func = methods.get(args[1])
+            func_help_out = func()
+            cmd_out = "{0}\n\t{1}".format(cmd_out, func_help_out)
+            
+            
+    else:    
+        cmd_out = "{0}Command List:".format(cmd_out)
+        for command in command_list:
+            if not command.startswith("_"):
+                cmd_out = "{0}\n\t{1}".format(cmd_out, command)
+    
+    ret['Zettaknight']['Help'] = {'0': cmd_out}
+    
+    return ret
+
+def do_prep_work():
+    '''
+    this function is designed to do manage all things needed before zettaknight can run 
+    '''
+    ret = {}
+    ret[zettaknight_globs.fqdn] = {}
     
     try:
-        
-        pool_name = "zfs_data" #default pool name 
-        arg_dict["pool_name"] = pool_name
-        
-        ret[pool_name] = {}
-        
-        ########## user input definitions ###################
-        #query_return_item is defined in zettaknight_utils
-        arg_dict["disk_list"] = query_return_item("File containing all list of disks to be used for {0}, I.E /tmp/bunchofdisks.txt: ".format(pool_name))
-        arg_dict["raid"] = query_return_item("Raid level to be used [1-3]. I.E. 4+1, 5+2, 1+1: ")
-        arg_dict["ashift"] = query_return_item("ashift value for {0}, value is 9 for 512 block disks and 12 for 4096 block disks: ".format(pool_name))
-        arg_dict["luks"] = query_yes_no("encrypt data disks with LUKS? ")
-        ######################################################
-        
-        
-        print("arg_dict is {0}".format(arg_dict))
-        
-        ############### creation of the zpool ################
-        print("creating zpool: {0}".format(pool_name))
-        create_output = create(pool_name, **arg_dict) #from zettaknight_zpools
-        #ret[pool_name]['Zpool Create'] = create_output[pool_name]['Zpool Create'] #'NoneType' object has no attribute '__getitem__'
-        ######################################################
-        
-        ################## ssh key creation  #################
-        print("checking for {0}".format(zettaknight_globs.identity_file))
-        if not os.path.isfile(zettaknight_globs.identity_file):
-            print(printcolors("zettaknight id file not found, generating.", "WARNING"))
-            keygen_output = ssh_keygen(zettaknight_globs.identity_file)
-            ret[pool_name]['Generate SSH Keygen'] = keygen_output[zettaknight_globs.fqdn]['Generate SSH Key']            
-        ######################################################
-        
-        ############# backup luks headers ####################
-        if arg_dict["luks"]:
-            print("backing up luks headers for {0}".format(pool_name))
-            luks_backup_output = backup_luks_headers()
-            ret[pool_name]['Backup Luks Headers'] = luks_backup_output[zettaknight_globs.fqdn]['Backup Luks Headers']
-        ######################################################
-        
-        
-        ######## create zettaknight configuration file #######
         if not os.path.isdir(zettaknight_globs.conf_dir_new): #if new directory does not exists, make it
-            print("creating {0}".format(zettaknight_globs.conf_dir_new))
             os.mkdir(zettaknight_globs.conf_dir_new)
-        ######################################################
+            print(printcolors("created {0}".format(zettaknight_globs.conf_dir_new), "OKBLUE"))
+            
         
-        ############ create the first dataset ################
-        dataset = query_return_list("Datasets to be created on {0}: ".format(pool_name))
-        for item in dataset:
-            dset_args = []
-            dataset_full = "{0}/{1}".format(pool_name, item)
-            dset_args.append(dataset_full)
-            dset_args.append("create_config=True")
-            add_dset_output = add_dataset(*dset_args) #from zettaknight_utils
-            ret[pool_name]['Add dataset {0}'.format(dataset_full)] = add_dset_output[dataset_full]['add_dataset']
-        ######################################################
+        ###########################################################################################
+        #test if zettaknight conf file exists, if not copy default conf file out of share and exit#
+        ###########################################################################################
+        try:
+            if not os.path.isdir(zettaknight_globs.conf_dir_new): #if new directory does not exists, make it
+                        os.mkdir(zettaknight_globs.conf_dir_new)
+                        
+            if not os.path.isfile(zettaknight_globs.config_file_new) or not os.path.isfile(zettaknight_globs.pool_config_file):
+                if os.path.isfile(zettaknight_globs.default_config_file):
+                    if not os.path.isfile(zettaknight_globs.config_file_new):
+                        shutil.copy(zettaknight_globs.default_config_file, zettaknight_globs.config_file_new)
+                        print(printcolors("copied {0} to {1}".format(zettaknight_globs.default_config_file, zettaknight_globs.config_file_new), "OKBLUE"))
+                else:
+                    raise IOError('default configuration file does not exist in {0}, cannot continue'.format(zettaknight_globs.default_config_file))
+                    
+                if os.path.isfile(zettaknight_globs.default_pool_config_file):
+                    if not os.path.isfile(zettaknight_globs.pool_config_file):
+                        shutil.copy(zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file)
+                        print(printcolors("copied {0} to {1}".format(zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file), "OKBLUE"))
+                else:
+                    raise IOError('default pool configuration file does not exist in {0}, cannot continue'.format(zettaknight_globs.default_pool_config_file))
+                
+                print(printcolors("\ndefault conf files have been created.\nEdit values then run zettaknight again to deploy the configuration", "WARNING"))
+                sys.exit(0)
+            
+        except Exception as e:
+            print(printcolors(e, "FAIL"))
+            sys.exit(1)
+        ###########################################################################################
+        ###########################################################################################
+        ###########################################################################################
+        out0 = build_out_config()
+        out1 = create_crond_file()
+        out2 = backup_luks_headers()
+        out3 = backup_files()
         
-        ###### create server to server transfer pathing ######
-        replication_output = configure_replication() #from zettaknight_zfs
-        for repl_job, repl_job_output in replication_output[dataset_full].itervalues():
-            ret[pool_name]['{0}'.format(repl_job)] = repl_job_output
-        ######################################################
-    
+        ret[zettaknight_globs.fqdn] = out0[zettaknight_globs.fqdn]
+        ret[zettaknight_globs.fqdn][zettaknight_globs.crond_zettaknight] = out1[zettaknight_globs.fqdn][zettaknight_globs.crond_zettaknight]
+        ret[zettaknight_globs.fqdn][zettaknight_globs.crond_primary] = out1[zettaknight_globs.fqdn][zettaknight_globs.crond_primary]
+        ret[zettaknight_globs.fqdn][zettaknight_globs.crond_secondary] = out1[zettaknight_globs.fqdn][zettaknight_globs.crond_secondary]
+        ret[zettaknight_globs.fqdn]['Backup Luks Headers'] = out2[zettaknight_globs.fqdn]['Backup Luks Headers']
+        ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store] = out3[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store]
+        
+        
     except Exception as e:
+        ret[zettaknight_globs.fqdn]['prep work'] = {}
+        ret[zettaknight_globs.fqdn]['prep work']['1'] = {}
         print(printcolors(e, "FAIL"))
-        sys.exit(1)
-    
-    zettaknight_globs.zfs_conf = _get_conf()
+        ret = e  
     
     return ret
 
     
 def _get_conf():
     '''
-    '''
+    '''   
+     
     config_dict = {}
+    
     try:
         conff = open(zettaknight_globs.config_file_new, 'r')   
         config_dict = yaml.safe_load(conff)
-    except Exception as e:
-        print(printcolors("error opening {0}, checking old location: {1}".format(zettaknight_globs.config_file_new, zettaknight_globs.conf_dir), "WARNING"))
-        try:
-            if os.path.isfile(zettaknight_globs.config_file): #test if old config file exists
-                if not os.path.isdir(zettaknight_globs.conf_dir_new): #if new directory does not exists, make it
-                    os.mkdir(zettaknight_globs.conf_dir_new)
-                    print(printcolors("created {0}".format(zettaknight_globs.conf_dir_new), "OKBLUE"))
-                if not os.path.isfile(zettaknight_globs.config_file_new): #if new config file does not exist, move it to new location 
-                    shutil.move(zettaknight_globs.config_file, zettaknight_globs.config_file_new)
-                    print(printcolors("copied {0} to {1}".format(zettaknight_globs.config_file, zettaknight_globs.config_file_new, "OKBLUE")))
-                    os.symlink(zettaknight_globs.config_file_new, zettaknight_globs.config_file)
-                    print(printcolors("created symlink {0} --> {1}".format(zettaknight_globs.config_file_new, zettaknight_globs.config_file, "OKBLUE")))
-            else:
-                print(printcolors("file {0} does not exists".format(zettaknight_globs.config_file), "WARNING"))
-            conff = open(zettaknight_globs.config_file_new, 'r')
-            config_dict = yaml.safe_load(conff)
-        except Exception as e:
-            print(printcolors(e, "FAIL"))
-            first_run_out = query_yes_no("conf file: {0} does not exist, would you like to create it?".format(zettaknight_globs.config_file_new))
-            if first_run_out:
-                first_run()
-            else:
-                pass
-    
-    #test to determine if pool and child objects are both defined in config_file
-    defined_zpools = zettaknight_utils.spawn_job("/sbin/zpool list -o name -H")
-    zpool_list = []
-
-    for zpool in defined_zpools.itervalues():
-        zpool_clean = zpool.strip()
-        for dataset in config_dict.iterkeys():
-            dataset_clean = dataset.strip()
-            
-            if zpool_clean == dataset_clean:
-                #print("{0} == {1}").format(zpool_clean, dataset_clean)
-                zpool_list.append(zpool_clean)
-
-    #print(zpool_list)
-    if zpool_list:
-        for zpool in zpool_list:
-            num = zettaknight_utils.pipe_this2("cat {0} | grep {1} | wc -l".format(zettaknight_globs.config_file, zpool))
-            num_out = num.stdout.read()
-            num_out = num_out.strip() #remove trailing newline
-            if int(num_out) > 1:
-                print(printcolors("pool {0} is defined with child objects, both cannot be defined\ncheck definitions in {1}".format(zpool, zettaknight_globs.config_file), "FAIL"))
-                sys.exit(1)
+    except IOError as e:
+        print(printcolors(e, "FAIL"))
     
     new_dict = {}
     #print(config_dict)
@@ -176,6 +173,7 @@ def _get_conf():
             new_dict[dataset]['snap'] = {}
             new_dict[dataset]['snap']['interval'] = {}
             new_dict[dataset]['snap']['remote_server'] = {}
+            new_dict[dataset]['snap']['dgr'] = {}
             #####################################
         
             #print("dataset is {0}".format(dataset))
@@ -213,6 +211,8 @@ def _get_conf():
                         new_dict[dataset]['snap']['interval'] = config_dict['defaults']['snap']['interval']
                     if 'remote_server' in config_dict['defaults']['snap'].iterkeys():
                         new_dict[dataset]['snap']['remote_server'] = config_dict['defaults']['snap']['remote_server']
+                    if 'dgr' in config_dict['defaults']['snap'].iterkeys():
+                        new_dict[dataset]['snap']['dgr'] = config_dict['defaults']['snap']['dgr']
             ###########################################################################
             ###########################################################################
             
@@ -248,6 +248,8 @@ def _get_conf():
                         new_dict[dataset]['snap']['interval'] = config_dict[dataset]['snap']['interval']
                     if 'remote_server' in config_dict[dataset]['snap'].iterkeys():
                         new_dict[dataset]['snap']['remote_server'] = config_dict[dataset]['snap']['remote_server']
+                    if 'dgr' in config_dict[dataset]['snap'].iterkeys():
+                        new_dict[dataset]['snap']['dgr'] = config_dict[dataset]['snap']['dgr']
         
             ###########################################################################
             ###########################################################################
@@ -294,56 +296,50 @@ def _get_conf():
     #print(printcolors("\n\nfull dictionary for get_conf is as follows\n{0}".format(new_dict), "OKBLUE"))
     return new_dict
     
-
-def zfs_maintain(dset=False):
-    '''
-    The zfs_maintain function reads in dataset and maintenance requirements from /opt/clemson/zfs_scripts/maintain.conf
-
-    Accepted configuration keys are:
-
-        - remote_server
-        - retention
-        - reservation
-        - quota
-        - user
-        - contact
-
-    '''
+def _get_pool_conf():
     
-    ret = {}
-    protocol = "ssh"
+    pool_dict = {}
+
+    try:
+        conff = open(zettaknight_globs.pool_config_file, 'r')   
+        config_dict = yaml.safe_load(conff)
+    except IOError as e:
+        print(printcolors(e, "FAIL"))
+        return
     
-    if dset and str(dset) not in zettaknight_globs.zfs_conf.iterkeys():
-        ret[dset] = {}
-        ret[dset]['zfs maintain'] = {1: "{0} is not a Zettaknight controlled dataset.".format(dset)}
-        #zettaknight_utils.parse_output(ret)
-        return ret
-    
-    for dataset in zettaknight_globs.zfs_conf.iterkeys():
-        if dset:
-            if str(dset) != str(dataset):
-                continue
-                
-        ret[dataset] = {}
-        ret[dataset]['Cleanup'] = cleanup_snaps(dataset, zettaknight_globs.zfs_conf[dataset]['retention'])
-        if zettaknight_globs.zfs_conf[dataset]['quota']:
-            ret[dataset]['Quota'] = set_quota(dataset, zettaknight_globs.zfs_conf[dataset]['quota'])
-
-        if zettaknight_globs.zfs_conf[dataset]['refquota']:
-            ret[dataset]['Refquota'] = set_refquota(dataset, zettaknight_globs.zfs_conf[dataset]['refquota'])
-
-        if zettaknight_globs.zfs_conf[dataset]['reservation']:
-            ret[dataset]['Reservation'] = set_reservation(dataset, zettaknight_globs.zfs_conf[dataset]['reservation'])
-
-        if zettaknight_globs.zfs_conf[dataset]['refreservation']:
-            ret[dataset]['Refreservation'] = set_refreservation(dataset, zettaknight_globs.zfs_conf[dataset]['refreservation'])
+    if config_dict:
+        for zpool in config_dict.iterkeys():
+            pool_dict[zpool] = {}
         
-        if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
-            ret[dataset]['snapshot'] = create_snap(dataset, "quiet")
-
-    #print(ret)
-    #parse_output(ret)
-    return ret
+            pool_dict[zpool]['ashift'] = {}
+            pool_dict[zpool]['disk_list'] = {}
+            pool_dict[zpool]['raid'] = {}
+            pool_dict[zpool]['slog'] = {}
+            pool_dict[zpool]['luks'] = {}
+            pool_dict[zpool]['recordsize'] = {}
+            
+            if config_dict[zpool]:
+                if 'ashift' in config_dict[zpool].iterkeys():
+                    pool_dict[zpool]['ashift'] = config_dict[zpool]['ashift']
+                    
+                if 'disk_list' in config_dict[zpool].iterkeys():
+                    pool_dict[zpool]['disk_list'] = config_dict[zpool]['disk_list']
+                
+                if 'raid' in config_dict[zpool].iterkeys():
+                    pool_dict[zpool]['raid'] = config_dict[zpool]['raid']
+                    
+                if 'slog' in config_dict[zpool].iterkeys():
+                    pool_dict[zpool]['slog'] = config_dict[zpool]['slog']
+                
+                if 'luks' in config_dict[zpool].iterkeys():
+                    pool_dict[zpool]['luks'] = config_dict[zpool]['luks']
+                
+                if 'recordsize' in config_dict[zpool].iterkeys():
+                    pool_dict[zpool]['recordsize'] = config_dict[zpool]['recordsize']
+                
+        #print(printcolors(pool_dict, "OKBLUE"))                    
+        return pool_dict
+ 
    
 def _entry_point(argv=None):
     
@@ -361,6 +357,14 @@ def _entry_point(argv=None):
             print(printcolors(e, "FAIL"))
             sys.exit(0)
 
+    #############################################################################
+    #test to determine if pool and child objects are both defined in config_file#
+    #############################################################################
+    
+    #############################################################################
+    #############################################################################
+    #############################################################################
+
     if not os.path.isfile(zettaknight_globs.identity_file):
         try:
             print(printcolors("zettaknight id file not found, generating.", "WARNING"))
@@ -373,8 +377,20 @@ def _entry_point(argv=None):
     ret = {}
     funcname = False
 
+    methods = globals().copy()
+    methods.update(locals())
     
     if len(argv) > 1:
+            
+        if 'help' in argv:
+            zettaknight_globs.help_flag = True
+            funcname = "help"
+            func = methods.get(funcname)
+            argv.remove('help')
+            ret = func(methods, *argv)
+            parse_output(ret)
+            return ret
+            
         if 'mail_output' in argv:
             zettaknight_globs.mail_flag = True
             zettaknight_globs.nocolor_flag = True
@@ -387,8 +403,6 @@ def _entry_point(argv=None):
         
         if len(argv) > 1:
             funcname = argv[1]
-            methods = globals().copy()
-            methods.update(locals())
             func = methods.get(funcname)
             if not func:
                 try:
@@ -419,6 +433,7 @@ def _entry_point(argv=None):
                     ret = func(**kwargs)
                 else:
                     zettaknight_globs.zfs_conf = _get_conf()
+                    zettaknight_globs.zpool_conf = _get_pool_conf()
                     ret = func(*args, **kwargs)
             except TypeError as e:
                 print(printcolors(e, "FAIL"))
@@ -426,11 +441,13 @@ def _entry_point(argv=None):
                 sys.exit(0)
         else:
             zettaknight_globs.zfs_conf = _get_conf()
-            ret = create_crond_file()
+            zettaknight_globs.zpool_conf = _get_pool_conf()
+            ret = do_prep_work()
             
     else:
         zettaknight_globs.zfs_conf = _get_conf()
-        ret = create_crond_file()
+        zettaknight_globs.zpool_conf = _get_pool_conf()
+        ret = do_prep_work()
         
     suppress_list = ["check_group_quota", "find_versions", "recover"]
     if str(funcname) not in suppress_list:

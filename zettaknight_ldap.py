@@ -1,4 +1,22 @@
 #!/usr/bin/python
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 # -*- coding: utf-8 -*-
 # Import python libs
  
@@ -14,10 +32,24 @@ import paramiko
 
 def create_cifs_share(**kwargs):
     '''
-    Creates a zfs dataset for a given user or group.    
+    Creates a zfs dataset for a given user or group. 
     '''
     ret = {}
     
+    if zettaknight_globs.help_flag:
+        ret = """Create CIFS Share:
+
+    Function to create a new dataset with proper permissions for user/group access over CIFS on primary and secondary ZFS servers.  Arguments should be passed as key/value pairs.
+
+    Required Arguments:
+        user or group
+            Specifies the username or group name to create the share for.
+
+   Optional Arguments:
+        dataset
+            Specifies the parent dataset to create the share under.  If not specified, the default will be pulled from Zettaknight conf files"""
+        return ret
+  
     user = False
     group = False
     
@@ -89,6 +121,22 @@ def set_cifs_quota(**kwargs):
     '''
     
     ret = {}
+    
+    if zettaknight_globs.help_flag:
+        ret = """Set CIFS Quota:
+
+    Function to set a quota on a user or group CIFS share.  Sets the quota on primary and secondary ZFS servers.  Arguments should be passed as key/value pairs.
+
+    Required Arguments:
+        user or group
+            Specifies the username or group name tied to the relevant share to set the quota on.
+        quota
+            Quota to be set.  Should be specified with a number and unit, ie. 10T, 100G, 10M.  'None' should be specified to remove the quota.  
+   Optional Arguments:
+        dataset
+            Specifies the parent dataset to search for the share under.  If not specified, the default will be pulled from Zettaknight conf files"""
+        return ret
+        
     user = False
     group = False
     quota = False
@@ -152,15 +200,15 @@ def set_cifs_quota(**kwargs):
                         pass
     except:
         pass
-		
+                
     ret[dset] = {}
     
     quota_cmd = "/sbin/zfs set quota={0} {1}".format(quota, dset)
     ret[dset]['Set User Quota'] = zettaknight_utils.spawn_job(quota_cmd)
     
     return ret
-	
-	
+        
+        
 def get_cifs_quota(**kwargs):
     '''
     get quota for user or group cifs share.
