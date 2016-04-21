@@ -1,5 +1,6 @@
 #!/usr/bin/python
-#
+# -*- coding: utf-8 -*-
+
 #    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
 #
 #    This file is part of Zettaknight.
@@ -17,7 +18,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
 #
-# -*- coding: utf-8 -*-
+
 # Import python libs
  
 
@@ -271,7 +272,7 @@ def ssh_keygen(keyfile, remote_ssh=False):
     
     return ret
  
-def replace_keys(keyfile=False, delete=False):
+def replace_keys(**kwargs):
     '''
     '''
     
@@ -279,19 +280,21 @@ def replace_keys(keyfile=False, delete=False):
     ret = {}
     ret[zettaknight_globs.fqdn] = {}   
     ret[zettaknight_globs.fqdn]['Replace SSH Keys'] = {}
+    ret[zettaknight_globs.fqdn]['Create SSH Key'] = {}
     ret[zettaknight_globs.fqdn]['Replace SSH Keys']['1'] = {}
     
-    if keyfile:
+    if 'keyfile' in kwargs.iterkeys():
+        keyfile = kwargs['keyfile']
         if not os.path.exists(keyfile):
-            ssh_keygen(keyfile)
+            ret[zettaknight_globs.fqdn]['Create SSH Key'] = ssh_keygen(keyfile)
     else:
         ret[zettaknight_globs.fqdn]['Replace SSH Keys']['1'] = "keyfile is empty, replace_keys requires a keyfile"
         return ret
     
     
     try:
-        luks_key_cmd = "bash {0} -k {1}".format(zettaknight_globs.luks_key_script, source_id)
-        if delete:
+        luks_key_cmd = "bash {0} -k {1}".format(zettaknight_globs.luks_key_script, keyfile)
+        if 'delete' in kwargs.iterkeys():
             luks_key_cmd = "{0} -k {1} -d".format(zettaknight_globs.luks_key_script, destination_id)
     
         ret[zettaknight_globs.fqdn]['Replace Luks Keys'] = spawn_job(luks_key_cmd)

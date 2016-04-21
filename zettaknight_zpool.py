@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 #
 #    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
 #
@@ -17,7 +18,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
 #
-# -*- coding: utf-8 -*-
 # Import python libs
 import zettaknight_utils
 import zettaknight_globs
