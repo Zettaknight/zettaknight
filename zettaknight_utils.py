@@ -60,6 +60,8 @@ def zlog(*args):
     
     date = datetime.datetime.today()
     
+    if level.upper() == "DEBUG":
+        level_int = 5
     if level.upper() == "INFO":
         level_int = 4
     if level.upper() == "WARNING":
@@ -71,6 +73,8 @@ def zlog(*args):
         
     #test if level_zlog in globs is a string or int
     if not isinstance(zettaknight_globs.level_zlog, int):
+        if zettaknight_globs.level_zlog == "DEBUG":
+            zettaknight_globs.level_zlog = 5
         if zettaknight_globs.level_zlog == "INFO":
             zettaknight_globs.level_zlog = 4
         if zettaknight_globs.level_zlog == "WARNING":
@@ -80,7 +84,14 @@ def zlog(*args):
         if zettaknight_globs.level_zlog == "CRITICAL":
             zettaknight_globs.level_zlog = 1
     
+    if zettaknight_globs.level_zlog >= 5:
+    
+        if level.upper() == "DEBUG":
+            level = printcolors("{0}".format(level.upper()), "OKBLUE")
+            ret = "{0} {1} {2}".format(date, level, message)
+    
     if zettaknight_globs.level_zlog >= 4:
+    
         if level.upper() == "INFO":
             level = printcolors("{0}".format(level.upper()), "OKBLUE")
             ret = "{0} {1} {2}".format(date, level, message)
@@ -317,6 +328,47 @@ def spawn_job(cmd):
         pass
  
     return ret
+    
+def spawn_jobs(*args):
+
+    '''
+    function expects a list
+    '''
+    
+    zlog("args of type {0} passed to spawn_jobs:\n\t{1}".format(type(args), args), "DEBUG")
+
+    output = {}
+    ret = []
+    
+    try:
+        for arg in args:
+            if isinstance(arg, list):
+                for list_item in arg:
+                    zlog("starting background job:\n\t{0}".format(list_item), "INFO")
+                    output["{0}".format(list_item)] = subprocess.Popen(shlex.split(list_item), stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+            else:
+                zlog("spawn_jobs expected a list, instead recieved a {0}".format(type(arg)), "CRITICAL")
+        
+        for out in output.itervalues():
+            zlog("issuing wait to object:\n\t{0}".format(out), "INFO")
+            out.wait()
+            stdout = out.stdout.read()
+            if not stdout:
+                if int(out.returncode) == 0:
+                    stdout = "Job succeeded"
+                else:
+                    stdout = "Job failed"
+            	
+            ret.append({out.returncode: stdout})
+            
+    except Exception as e:
+        returncode = 1
+        ret.append({returncode: e})
+        zlog("{0}".format(e), "ERROR")
+        pass
+        
+    return ret
+
  
 def ssh_keygen(keyfile, remote_ssh=False):
     '''
@@ -325,28 +377,6 @@ def ssh_keygen(keyfile, remote_ssh=False):
     import paramiko
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """SSH Keygen:
-
-    Function to create a ssh key - either the default Zettaknight key defined in Zettaknight conf files, or a keyfile passed in as an argument.
-	
-	Usage:
-	    zettaknight ssh_keygen
-	
-    Optional Arguments:
-        keyfile
-            Specifies a location for the new keyfile.  By default this information is pulled from configuration files.
-		remote_ssh
-			Specifies a remote host to copy the ssh key to.
-			
-	Normally this function is called by other Zettaknight functions and does not need to be called directly."""
-
-        return ret
-		
-||||||| .r504
-=======
     
     if zettaknight_globs.help_flag:
         ret = """SSH Keygen:
@@ -366,7 +396,6 @@ def ssh_keygen(keyfile, remote_ssh=False):
 
         return ret
         
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn]['Generate SSH Key'] = {}
         
@@ -409,30 +438,6 @@ def replace_keys(**kwargs):
     
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """Replace Keys:
-
-    Function to create a new ssh key and replace old luks keys on defined luks devices
-	
-	Usage:
-	    zettaknight replace_keys keyfile=<keyfile>
-	
-    Required Arguments:
-        keyfile
-            Specifies a name for the new keyfile.  
-		
-	Optional Arguments:
-		delete
-			If delete=True is specified, the old keyfile will be deleted after it is replaced.
-			
-    """
-
-        return ret
-		
-||||||| .r504
-=======
     
     if zettaknight_globs.help_flag:
         ret = """Replace Keys:
@@ -454,7 +459,6 @@ def replace_keys(**kwargs):
 
         return ret
         
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}   
     ret[zettaknight_globs.fqdn]['Replace SSH Keys'] = {}
     ret[zettaknight_globs.fqdn]['Create SSH Key'] = {}
@@ -483,27 +487,6 @@ def replace_keys(**kwargs):
  
 def backup_luks_headers(**kwargs):
     ret = {}
-<<<<<<< .mine
-    if zettaknight_globs.help_flag:
-        ret = """Backup LUKS Headers:
-
-    Function to backup headers for currently defined LUKS devices.  By default, headers are backed up to the
-	Zettaknight store defined in configuration files.  Target argument can be supplied to redirect where the
-	headers are backed up to.
-	
-	Usage:
-	    zettaknight backup_luks_headers  (target=<output directory>)
-	
-	Optional Arguments:
-		target
-			Redirects output to provided directory.
-			
-    """
-
-        return ret
-		
-||||||| .r504
-=======
     if zettaknight_globs.help_flag:
         ret = """Backup LUKS Headers:
 
@@ -522,7 +505,6 @@ def backup_luks_headers(**kwargs):
 
         return ret
         
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     
     #set location for luks header backups if empty
@@ -563,46 +545,6 @@ def create_config(**kwargs):
     '''
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """Create Config:
-
-	Function to create/update configuration files for newly created or previously unmanaged datasets.
-	User will be queried to provide any information that is not provided as an argument or in configuration
-	files.
-	
-	Usage:
-	    zettaknight create_config (dataset=<dataset> <arg>=<value>)
-	
-	Optional Arguments:
-		dataset
-			Dataset name configuration is to be created for
-		user
-			Username to use for snapshot replication
-		quota
-			Quota to set on dataset
-		refquota
-			Refquota to set on dataset
-		reservation
-			Reservation to set on dataset
-		refreservation
-			Refreservation to set on dataset
-		retention
-			Number of days to keep snapshots
-		secure
-			Whether snapshots should be replicated over SSH
-		contact
-			Contact e-mail to send job error output to.
-		interval
-			Interval at which to take snapshots.
-		remote_server
-			Remote server to replicate snapshots to."""
-
-        return ret
-		
-||||||| .r504
-=======
     
     if zettaknight_globs.help_flag:
         ret = """Create Config:
@@ -640,7 +582,6 @@ def create_config(**kwargs):
 
         return ret
         
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn]['Create Config'] = {}
     
@@ -862,26 +803,6 @@ def sharenfs(*args):
     Updates /etc/exports, runs exportfs -ar
     '''
     ret ={}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """ShareNFS:
-
-    Function to add entries in /etc/exports for provided dataset and iprange, and export the newly defined share.
-	
-	Usage:
-		zettaknight sharenfs <dataset> <ip_range>
-
-    Required Arguments:
-        dataset
-            The dataset to begin sharing
-		ip_range
-			The IP or IP_range to share provided dataset to."""
-
-        return ret
-			
-||||||| .r504
-=======
     
     if zettaknight_globs.help_flag:
         ret = """ShareNFS:
@@ -899,7 +820,6 @@ def sharenfs(*args):
 
         return ret
             
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn]['Create NFS Share'] = {}
     
@@ -1054,21 +974,6 @@ def backup_files(*args):
     '''
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """Backup Files:
-
-    Function to backup Zettaknight configuration files, as well as other files relevant to pool and dataset functionality.
-	ie. /etc/exports and /etc/crypttab 
-	
-	Usage:
-		zettaknight backup_files"""
-
-        return ret
-		
-||||||| .r504
-=======
     
     if zettaknight_globs.help_flag:
         ret = """Backup Files:
@@ -1081,7 +986,6 @@ def backup_files(*args):
 
         return ret
         
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store] = {}
     ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store]['0'] = {}
@@ -1157,21 +1061,6 @@ def create_crond_file():
     crond_secondary = zettaknight_globs.crond_secondary
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """Create Crond File:
-
-    Function to create necessary crond files locally and remotely to schedule Zettaknight monitoring and management jobs.
-	All necessary information is pulled from configuration files.
-	
-	Usage:
-		zettaknight create_crond_file"""
-
-        return ret
-		
-||||||| .r504
-=======
     
     if zettaknight_globs.help_flag:
         ret = """Create Crond File:
@@ -1184,7 +1073,6 @@ def create_crond_file():
 
         return ret
         
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn][crond_zettaknight] = {}
     ret[zettaknight_globs.fqdn][crond_primary] = {}
@@ -1422,26 +1310,6 @@ def create_kwargs_from_args(*args):
 def install_hpnssh(**kwargs):
     
     ret = {}
-<<<<<<< .mine
-
-    ret = {}
-	
-    if zettaknight_globs.help_flag:
-        ret = """Install HPNSSH:
-
-	Function to attempt a basic install of HPNSSH.  (https://www.psc.edu/index.php/hpn-ssh)
-		
-	Usage:
-		zettaknight install_hpnssh
-		
-	Optional Arguments:
-		port
-			Specifies a non-default port to listen for ssh connections on (default is 22)"""
-
-        return ret
-		
-||||||| .r504
-=======
 
     ret = {}
     
@@ -1459,7 +1327,6 @@ def install_hpnssh(**kwargs):
 
         return ret
         
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn]['install hpnssh'] = {}
     

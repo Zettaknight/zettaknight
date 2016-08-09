@@ -70,7 +70,7 @@ today_date = str(datetime.datetime.today().strftime('%Y%m%d_%H%M'))
 today_date2 = str(datetime.datetime.today().strftime('%Y%m%d'))
 
 #variable to determine the logging level for zlog
-level_zlog = "DEBUG"
+level_zlog = "WARNING"
  
 #the following sets the directory this file is in as the base for where all
 #other files necessary for zettaknight are referenced

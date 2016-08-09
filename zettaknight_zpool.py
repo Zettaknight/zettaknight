@@ -179,7 +179,7 @@ def create_zpool(pool=False, disk_list=False, raid=False, luks=False, slog=False
     try:
         ret[pool]['Create Zpool'] = zettaknight_utils.spawn_job(create_cmd)
     except Exception as e:
-        print(zettaknight_utils.printcolors(e, "FAIL"))
+        zettaknight_utils.zlog("{0}".format(e), "ERROR")
         ret[pool]['Create Zpool']['1'] = e
         
     return ret

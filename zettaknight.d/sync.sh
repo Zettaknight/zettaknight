@@ -62,18 +62,36 @@ function check_pipes () {
 
 function ssh_over () {
     ssh_cmd="$@"
+    
+    if ! [ -z "$priority" ]; then
 
-    if ! [[ -z "$identity_file" ]]; then
-        if [[ -f "$identity_file" ]]; then
-            $ssh -q -i "$identity_file" "$remote_ssh" "$ssh_cmd"
+        if ! [[ -z "$identity_file" ]]; then
+            if [[ -f "$identity_file" ]]; then
+                nice -n $priority $ssh -q -i "$identity_file" "$remote_ssh" "$ssh_cmd"
+            else
+                echo "$identity_file is not accessible, cannot use"
+                nice -n $priority $ssh -q $remote_ssh "$ssh_cmd"
+            fi
         else
-            echo "$identity_file is not accessible, cannot use"
+            nice -n $priority $ssh -q $remote_ssh "$ssh_cmd"
+        fi
+    
+    else
+    
+        if ! [[ -z "$identity_file" ]]; then
+            if [[ -f "$identity_file" ]]; then
+                $ssh -q -i "$identity_file" "$remote_ssh" "$ssh_cmd"
+            else
+                echo "$identity_file is not accessible, cannot use"
+                $ssh -q $remote_ssh "$ssh_cmd"
+            fi
+        else
             $ssh -q $remote_ssh "$ssh_cmd"
         fi
-    else
-        $ssh -q $remote_ssh "$ssh_cmd"
+    
     fi
-
+    
+    
 }
 
 
@@ -82,6 +100,8 @@ function ssh_over () {
 setopts var "-d|--dataset" "local_dataset" "local_dataset to be replicated"
 setopts var "-s|--ssh" "remote_ssh" "Connection string for remote SSH connections, ie. root@somehost.somedomain.com"
 setopts var "-i|--identity" "identity_file" "RSA identity file to use when initiating SSH connections.  Requires full path of identity file."
+setopts var "-t|--timeout" "lock_file_exp" "if lock file still exists for -t hours, send an alert"
+setopts var "-n|--priority" "priority" "nice level this script should run as"
 setopts flag "-p|--pull" "pull_flag" "Replicates last snapshot from remote server to local server (pull replication instead of traditional push replication)."
 setopts flag "-h|--help" "display_help_flag" "Shows this help dialogue."
 
@@ -94,8 +114,11 @@ lock_file_path=${Local_output_dir}/${lock_file}
 remote_output_dir="/tmp"
 remote_dataset="$local_dataset" #if no remote pool given, assume same as $local_dataset
 remote_host=$(echo ${remote_ssh} | cut -d "@" -f2)
-lock_file_exp=48 #hours until an alert will be sent about a existing lock file
 
+if [ -z $lock_file_exp ]; then #if timeout not called set a default
+    lock_file_exp=48 #hours until an alert will be sent about a existing lock file
+fi
+    
 ##################### check/create lockfile ######################
 ##################################################################
 if [[ -f "$lock_file_path" ]]; then

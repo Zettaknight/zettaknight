@@ -79,7 +79,7 @@ def find_versions(dataset, filename, quiet=False):
             try:
                 raise Exception("{0}".format(snaplist_out))
             except Exception as e:
-                print(zettaknight_utils.printcolors(e, "FAIL"))
+                zettaknight_utils.zlog("{0}".format(e), "ERROR")
                 sys.exit(0)
                 
         snapdiff_cmd = "/sbin/zfs diff {0}".format(snap)
@@ -168,7 +168,7 @@ def recover(snapshot, filename, relocate=None):
         try:
             raise Exception("Recoverable versions of {0} not found in dataset {1}".format(file, dataset))
         except Exception as e:
-            print(zettaknight_utils.printcolors(e, "FAIL"))
+            zettaknight_utils.zlog("{0}".format(e), "ERROR")
     
     path_list1 = find_snap[snap]
     
@@ -212,14 +212,14 @@ def recover(snapshot, filename, relocate=None):
         try:
             raise Exception("Ambiguous file reference.")
         except Exception as e:
-            print(zettaknight_utils.printcolors(e, "FAIL"))
+            zettaknight_utils.zlog("{0}".format(e), "ERROR")
             sys.exit(0)
     
     if len(path_list) < 1:
         try:
             raise Exception("No restorable files or folders identified. \nRe-run with explicit path to file?")
         except Exception as e:
-            print(zettaknight_utils.printcolors(e, "FAIL"))
+            zettaknight_utils.zlog("{0}".format(e), "ERROR")
             sys.exit(0)
     
     a, p = path_list[0].split(dataset, 1)
