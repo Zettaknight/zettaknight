@@ -22,6 +22,8 @@ version="0.0.1"
 
 #source helper functions
 running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+#fqdn=$(hostname -f)
+#zettaknight_conf_file="/etc/zettaknight/${fqdn}.conf"
 setopts="${running_dir}/setopts.sh"
 source $setopts || { echo "failed to source $setopts"; exit 1; }
 
@@ -62,10 +64,12 @@ function check_previous () {
 }
 
 function clean_up () {
-  if [ -n $dset ]; then
-    $zfs destroy $dset
-    $logger -p info "$0 destroyed dataset $dset at $date_time because the script encountered an error and could not continue."
-  fi
+    if [ -n $dset ]; then
+        if [ $script_created_dset == 1 ]; then
+            $zfs destroy $dset
+            $logger -p info "$0 destroyed dataset $dset at $date_time because the script encountered an error and could not continue."
+        fi
+    fi
 }
 
 function find_call () {
@@ -114,6 +118,7 @@ function find_call () {
 ######### set/declare flags ###########
 #######################################
 display_help_flag=0
+script_created_dset=0
 
 #######################################
 ##### set/declare variables ###########
@@ -138,6 +143,34 @@ find_call "chown"
 find_call "chgrp"
 find_call "setfacl"
 find_call "logger"
+
+
+Local_output_dir="$running_dir"
+lock_file=$(echo "share_create.lock" | tr -d "/")
+lock_file_path=${Local_output_dir}/${lock_file}
+
+##################### check/create lockfile ######################
+##################################################################
+loops=0
+while true; do
+    if [ "$loops" -gt 29 ]; then
+        echo "$lock_file_path has existed for more than 5 minutes, create process cannot continue"
+        exit 1
+    fi
+    if [[ -f "$lock_file_path" ]]; then
+        echo "$lock_file_path exists, sleeping until lock is released."
+        sleep 10
+        ((loops++))
+    else
+        touch "$lock_file_path"
+        check_previous "failed to create $lock_file_path"
+        break
+    fi
+done
+trap "{ rm -f $lock_file_path; exit; }" INT TERM EXIT
+##################################################################
+##################################################################
+
 
 #######################################
 ############ script start #############
@@ -171,7 +204,13 @@ dir=$(echo "/${dset}")
 #######################################
 
 $zfs create $dset
-check_previous "$zfs create $dset"
+zes=$?
+if ! [ $zes == 0 ]; then
+    echo "${zes} : $@"
+    exit 1
+else
+    script_created_dset=1
+fi
 
 $logger -p info "$0 created dataset $dset at $date_time"
 
@@ -212,6 +251,10 @@ elif ! [ -z $group ]; then
   echo "Share for group: $group created successfully."
   
 fi
+
+#if [ -e $zettaknight_conf_file ]; then
+#    echo -e "${dset}:\n  refquota=10G" >> $zettaknight_conf_file
+#fi
 
 exit 0
 

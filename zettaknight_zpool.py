@@ -27,6 +27,49 @@ import sys
 
 def create(*args, **kwargs):
 
+    if zettaknight_globs.help_flag:
+        ret = """Create Zpool:
+
+	Usage:
+		zettaknight create <optional args>
+	
+    Creates a Zpool using information in zettaknight zpool.conf or overrides provided as arguments.
+
+    Optional Arguments:
+        positional arguments:
+			pool
+				Name of zpool to be created.
+		
+		k=v pairs:
+			disk_list
+				File containing full path of disk devices to be used in pool creation.
+			raid
+				Raid configuration to be used in pool creation in the form of <data disks+<raid type>, ie 9+2, or 4+1.
+					acceptable raid type values and corresponding raid type:
+						0. Stripe
+						1. Raidz1
+						2. Raidz2
+						3. Raidz3
+						4. Mirror
+			luks
+				True or False.  Whether or not to create luks devices out of disks provided in disk_list.
+			slog
+				File containing full path of disk devices to be used in creation of a slog.
+			ashift
+				Ashift value to be passed to zpool create command.
+			ldap
+				True or False.  Whether or not to set the following pool properties:
+					xattr = sa
+					acltype = posixacl
+					aclinherit = passthrough
+			recordsize
+				Recordsize value to be passed to zpool create command.
+			keyfile
+				Location of keyfile to be used in creation of luks containers.  By default, the Zettaknight keyfile will be used.  Specifying another keyfile will overwrite this behavior.
+			
+			"""
+        return ret
+
     disk_list = bool(False)
     raid = bool(False)
     luks = bool(False)
@@ -81,6 +124,14 @@ def create(*args, **kwargs):
 
 def create_zpool(pool=False, disk_list=False, raid=False, luks=False, slog=False, create_config=False, ldap=False, recordsize=False, ashift=False, keyfile=False):
 
+    if zettaknight_globs.help_flag:
+        ret = """Create Zpool:
+
+		See help entry for create function.
+		
+		zettaknight help create
+		"""
+        return ret
 
     ret = {}
 

@@ -43,74 +43,13 @@ import zettaknight_globs
 import zettaknight_zfs
  
 
-def zlog(*args):
+def log(level, message):
     '''
     log function used for zettaknight purposes
     '''
     
-    if len(args) != 2:
-        ret[zettaknight_globs.fqdn]['log']['1'] = "log function takes exactly 2 arguments (message, level)"
-        parse_output(ret)
-        return
-
-    message = args[0]
-    level = args[1]
-    
-    ret = ""
-    
-    date = datetime.datetime.today()
-    
-    if level.upper() == "INFO":
-        level_int = 4
-    if level.upper() == "WARNING":
-        level_int = 3
-    if level.upper() == "ERROR":
-        level_int = 2
-    if level.upper() == "CRITICAL":
-        level_int = 1
-        
-    #test if level_zlog in globs is a string or int
-    if not isinstance(zettaknight_globs.level_zlog, int):
-        if zettaknight_globs.level_zlog == "INFO":
-            zettaknight_globs.level_zlog = 4
-        if zettaknight_globs.level_zlog == "WARNING":
-            zettaknight_globs.level_zlog = 3
-        if zettaknight_globs.level_zlog == "ERROR":
-            zettaknight_globs.level_zlog = 2
-        if zettaknight_globs.level_zlog == "CRITICAL":
-            zettaknight_globs.level_zlog = 1
-    
-    if zettaknight_globs.level_zlog >= 4:
-        if level.upper() == "INFO":
-            level = printcolors("{0}".format(level.upper()), "OKBLUE")
-            ret = "{0} {1} {2}".format(date, level, message)
-            
-        if level.upper() == "SUCCESS":
-            level = printcolors("{0}".format(level.upper()), "OKGREEN")
-            ret = "{0} {1} {2}".format(date, level, message)
-        
-    if zettaknight_globs.level_zlog >= 3:
-        if level.upper() == "WARNING":
-            level = printcolors("{0}".format(level.upper()), "WARNING")
-            ret = "{0} {1} {2}".format(date, level, message)
-        
-    if zettaknight_globs.level_zlog >= 2:
-        if level.upper() == "ERROR":
-            level = printcolors("{0}".format(level.upper()), "FAIL")
-            ret = "{0} {1} {2}".format(date, level, message)
-        
-    if zettaknight_globs.level_zlog >= 1:
-        if level.upper() == "CRITICAL":
-            level = printcolors("{0}".format(level.upper()), "HEADER")
-            ret = "{0} {1} {2}".format(date, level, message)
-
-    
-    if ret:
-        print ret
-    
-    return ret
-
-        
+    return
+ 
 def pipe_this(*args):
  
     '''
@@ -156,7 +95,7 @@ def pipe_this2(arg):
         else:
             raise Exception("| not found in command, exiting")
     except Exception as e:
-            zettaknight_utils.zlog("funtion pipe_this2 encountered an unrecoverable error: {0}".format(e), "CRITICAL")
+            ret = printcolors(e,"FAIL")
             sys.exit(1)
  
     pipe = None
@@ -188,7 +127,6 @@ def mail_out(email_message, email_subject, email_recipient):
     ret[zettaknight_globs.fqdn]['mail'] = spawn_job(mail_out_cmd)
  
     return ret
-    
  
 def parse_output(out_dict):
     
@@ -196,7 +134,7 @@ def parse_output(out_dict):
     accepts information in the following format 
     ret[dataset]['job'][<ret code>][<payload>]
     '''
-    
+	
     Zlogger = logging.getLogger('Zlogger')
     Zlogger.setLevel(logging.INFO)
 
@@ -231,25 +169,25 @@ def parse_output(out_dict):
         a = printcolors("\nDataset: {0}\n────────┐".format(dataset), "HEADER")
         print(a)
         for job in out_dict[dataset].iterkeys():
-            #print(printcolors("    {0}:".format(job), "OKBLUE"))
+            #print(printcolors("\t{0}:".format(job), "OKBLUE"))
             for exit_status, output in out_dict[dataset][job].iteritems():
                 if isinstance(output, dict):
                     for value in out_dict[dataset][job][exit_status].itervalues():
                         for exit_status, output in value.iteritems():
                             #print("\n\noutput is : \n{0}\n\n ".format(output))
-                            output = str(output.replace('\n', '\n               '))
+                            output = str(output.replace('\n', '\n\t\t\t   '))
                 else:
-                    output = str(output.replace('\n', '\n               '))
+                    output = str(output.replace('\n', '\n\t\t\t   '))
     
                 if str(exit_status) is "0":
-                    task = "{0}".format(printcolors("    ├────────┬ {0}:".format(job),"OKBLUE"))
-                    task_output = "{0}".format(printcolors("         ├──────── {0}\n".format(output), "OKGREEN"))
+                    task = "{0}".format(printcolors("\t├────────┬ {0}:".format(job),"OKBLUE"))
+                    task_output = "{0}".format(printcolors("\t\t ├──────── {0}\n".format(output), "OKGREEN"))
                 else:
                     if zettaknight_globs.mail_error_flag:
                         mail_this = True
                         
-                    task = "{0}".format(printcolors("    ├────────┬ {0}:".format(job), "OKBLUE"))
-                    task_output = "{0}".format(printcolors("         ├──────── {0}\n".format(output), "FAIL"))
+                    task = "{0}".format(printcolors("\t├────────┬ {0}:".format(job), "OKBLUE"))
+                    task_output = "{0}".format(printcolors("\t\t ├──────── {0}\n".format(output), "FAIL"))
                     
                 msg = "{0}\n{1}".format(task, task_output)
                 
@@ -259,7 +197,7 @@ def parse_output(out_dict):
         if zettaknight_globs.mm_flag:
             mm_msg = re.sub("[├─┬┐]", "", global_ret)
             mm_msg = re.sub("%", " percent", mm_msg)
-            mm_msg = re.sub("    ", "", mm_msg)
+            mm_msg = re.sub("\t", "", mm_msg)
             mm_post(mm_msg)
         
         if zettaknight_globs.mail_flag or mail_this:
@@ -325,48 +263,6 @@ def ssh_keygen(keyfile, remote_ssh=False):
     import paramiko
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """SSH Keygen:
-
-    Function to create a ssh key - either the default Zettaknight key defined in Zettaknight conf files, or a keyfile passed in as an argument.
-	
-	Usage:
-	    zettaknight ssh_keygen
-	
-    Optional Arguments:
-        keyfile
-            Specifies a location for the new keyfile.  By default this information is pulled from configuration files.
-		remote_ssh
-			Specifies a remote host to copy the ssh key to.
-			
-	Normally this function is called by other Zettaknight functions and does not need to be called directly."""
-
-        return ret
-		
-||||||| .r504
-=======
-    
-    if zettaknight_globs.help_flag:
-        ret = """SSH Keygen:
-
-    Function to create a ssh key - either the default Zettaknight key defined in Zettaknight conf files, or a keyfile passed in as an argument.
-    
-    Usage:
-        zettaknight ssh_keygen
-    
-    Optional Arguments:
-        keyfile
-            Specifies a location for the new keyfile.  By default this information is pulled from configuration files.
-        remote_ssh
-            Specifies a remote host to copy the ssh key to.
-            
-    Normally this function is called by other Zettaknight functions and does not need to be called directly."""
-
-        return ret
-        
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn]['Generate SSH Key'] = {}
         
@@ -409,52 +305,6 @@ def replace_keys(**kwargs):
     
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """Replace Keys:
-
-    Function to create a new ssh key and replace old luks keys on defined luks devices
-	
-	Usage:
-	    zettaknight replace_keys keyfile=<keyfile>
-	
-    Required Arguments:
-        keyfile
-            Specifies a name for the new keyfile.  
-		
-	Optional Arguments:
-		delete
-			If delete=True is specified, the old keyfile will be deleted after it is replaced.
-			
-    """
-
-        return ret
-		
-||||||| .r504
-=======
-    
-    if zettaknight_globs.help_flag:
-        ret = """Replace Keys:
-
-    Function to create a new ssh key and replace old luks keys on defined luks devices
-    
-    Usage:
-        zettaknight replace_keys keyfile=<keyfile>
-    
-    Required Arguments:
-        keyfile
-            Specifies a name for the new keyfile.  
-        
-    Optional Arguments:
-        delete
-            If delete=True is specified, the old keyfile will be deleted after it is replaced.
-            
-    """
-
-        return ret
-        
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}   
     ret[zettaknight_globs.fqdn]['Replace SSH Keys'] = {}
     ret[zettaknight_globs.fqdn]['Create SSH Key'] = {}
@@ -476,53 +326,13 @@ def replace_keys(**kwargs):
     
         ret[zettaknight_globs.fqdn]['Replace Luks Keys'] = spawn_job(luks_key_cmd)
     except Exception as e:
-        zlog("{0}".format(e), "ERROR")
+        print(printcolors(e, "FAIL"))
         ret[zettaknight_globs.fqdn]['Replace SSH Keys']['1'] = e
         
     return ret
  
 def backup_luks_headers(**kwargs):
     ret = {}
-<<<<<<< .mine
-    if zettaknight_globs.help_flag:
-        ret = """Backup LUKS Headers:
-
-    Function to backup headers for currently defined LUKS devices.  By default, headers are backed up to the
-	Zettaknight store defined in configuration files.  Target argument can be supplied to redirect where the
-	headers are backed up to.
-	
-	Usage:
-	    zettaknight backup_luks_headers  (target=<output directory>)
-	
-	Optional Arguments:
-		target
-			Redirects output to provided directory.
-			
-    """
-
-        return ret
-		
-||||||| .r504
-=======
-    if zettaknight_globs.help_flag:
-        ret = """Backup LUKS Headers:
-
-    Function to backup headers for currently defined LUKS devices.  By default, headers are backed up to the
-    Zettaknight store defined in configuration files.  Target argument can be supplied to redirect where the
-    headers are backed up to.
-    
-    Usage:
-        zettaknight backup_luks_headers  (target=<output directory>)
-    
-    Optional Arguments:
-        target
-            Redirects output to provided directory.
-            
-    """
-
-        return ret
-        
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     
     #set location for luks header backups if empty
@@ -552,7 +362,7 @@ def check_quiet(quiet):
             try:
                 raise Exception("{0} argument not recognized by function: {1}".format(quiet, inspect.stack()[1][3]))
             except Exception as e:
-                zlog("{0}".format(e), "WARNING")
+                print(printcolors(e, "FAIL"))
                 sys.exit(0)
             
     return quiet
@@ -563,84 +373,6 @@ def create_config(**kwargs):
     '''
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """Create Config:
-
-	Function to create/update configuration files for newly created or previously unmanaged datasets.
-	User will be queried to provide any information that is not provided as an argument or in configuration
-	files.
-	
-	Usage:
-	    zettaknight create_config (dataset=<dataset> <arg>=<value>)
-	
-	Optional Arguments:
-		dataset
-			Dataset name configuration is to be created for
-		user
-			Username to use for snapshot replication
-		quota
-			Quota to set on dataset
-		refquota
-			Refquota to set on dataset
-		reservation
-			Reservation to set on dataset
-		refreservation
-			Refreservation to set on dataset
-		retention
-			Number of days to keep snapshots
-		secure
-			Whether snapshots should be replicated over SSH
-		contact
-			Contact e-mail to send job error output to.
-		interval
-			Interval at which to take snapshots.
-		remote_server
-			Remote server to replicate snapshots to."""
-
-        return ret
-		
-||||||| .r504
-=======
-    
-    if zettaknight_globs.help_flag:
-        ret = """Create Config:
-
-    Function to create/update configuration files for newly created or previously unmanaged datasets.
-    User will be queried to provide any information that is not provided as an argument or in configuration
-    files.
-    
-    Usage:
-        zettaknight create_config (dataset=<dataset> <arg>=<value>)
-    
-    Optional Arguments:
-        dataset
-            Dataset name configuration is to be created for
-        user
-            Username to use for snapshot replication
-        quota
-            Quota to set on dataset
-        refquota
-            Refquota to set on dataset
-        reservation
-            Reservation to set on dataset
-        refreservation
-            Refreservation to set on dataset
-        retention
-            Number of days to keep snapshots
-        secure
-            Whether snapshots should be replicated over SSH
-        contact
-            Contact e-mail to send job error output to.
-        interval
-            Interval at which to take snapshots.
-        remote_server
-            Remote server to replicate snapshots to."""
-
-        return ret
-        
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn]['Create Config'] = {}
     
@@ -862,44 +594,6 @@ def sharenfs(*args):
     Updates /etc/exports, runs exportfs -ar
     '''
     ret ={}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """ShareNFS:
-
-    Function to add entries in /etc/exports for provided dataset and iprange, and export the newly defined share.
-	
-	Usage:
-		zettaknight sharenfs <dataset> <ip_range>
-
-    Required Arguments:
-        dataset
-            The dataset to begin sharing
-		ip_range
-			The IP or IP_range to share provided dataset to."""
-
-        return ret
-			
-||||||| .r504
-=======
-    
-    if zettaknight_globs.help_flag:
-        ret = """ShareNFS:
-
-    Function to add entries in /etc/exports for provided dataset and iprange, and export the newly defined share.
-    
-    Usage:
-        zettaknight sharenfs <dataset> <ip_range>
-
-    Required Arguments:
-        dataset
-            The dataset to begin sharing
-        ip_range
-            The IP or IP_range to share provided dataset to."""
-
-        return ret
-            
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn]['Create NFS Share'] = {}
     
@@ -1014,7 +708,7 @@ def query_return_list(question):
         resp_list = list(strip_input(input).split(" "))
         #print("returning: {0}".format(resp_list))
     except Exception as e:
-        zlog("{0}".format(e), "CRITICAL")
+        print(printcolors(e, "FAIL"))
         sys.exit(1)
     
     
@@ -1054,34 +748,6 @@ def backup_files(*args):
     '''
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """Backup Files:
-
-    Function to backup Zettaknight configuration files, as well as other files relevant to pool and dataset functionality.
-	ie. /etc/exports and /etc/crypttab 
-	
-	Usage:
-		zettaknight backup_files"""
-
-        return ret
-		
-||||||| .r504
-=======
-    
-    if zettaknight_globs.help_flag:
-        ret = """Backup Files:
-
-    Function to backup Zettaknight configuration files, as well as other files relevant to pool and dataset functionality.
-    ie. /etc/exports and /etc/crypttab 
-    
-    Usage:
-        zettaknight backup_files"""
-
-        return ret
-        
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store] = {}
     ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store]['0'] = {}
@@ -1100,12 +766,7 @@ def backup_files(*args):
         gerp_run = spawn_job("/sbin/zfs list -H '{0}'".format(zettaknight_store))
         chk_code, chk_msg = gerp_run.popitem()
         if int(chk_code) is not 0:
-        
-            zlog("creating zettaknight store {0}".format(zettaknight_store), "INFO")
-        
             zettaknight_zfs.add_dataset(zettaknight_store)
-            
-            zlog("created zettaknight store {0}".format(zettaknight_store), "SUCCESS")
         
         #backup files to store
         for file in files:
@@ -1116,36 +777,19 @@ def backup_files(*args):
             
                 if os.path.isfile(file):
                     #print("backing up {0} to {1}".format(file, destination_dir))
-                    
-                    zlog("copying file {0} to {1}".format(file, destination_dir), "INFO")
-                    
                     shutil.copyfile(file, "{0}/{1}".format(destination_dir, filename))
-                
-                    zlog("copied file {0} to {1}".format(file, destination_dir), "SUCCESS")
                 
                 elif os.path.isdir(file):
                     if os.path.isdir("{0}/{1}".format(destination_dir, filename)):
-                    
-                        zlog("{0}/{1} already exists, removing copy any changes".format(destination_dir, filename), "WARNING")
-                    
                         shutil.rmtree("{0}/{1}".format(destination_dir, filename))
-                        
-                    zlog("copying directory {0} to {1}".format(file, destination_dir), "INFO")
-                    
                     shutil.copytree(file, "{0}/{1}".format(destination_dir, filename))
-                    
-                    zlog("copied directory {0} to {1}".format(file, destination_dir), "SUCCESS")
-                    
                 
                 ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store]['0'] = "successfully backup up files to {0}\n{1}".format(destination_dir, files)
             else:
                 ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store]['1'] = "{0} does not exist, cannot backup files".format(destination_dir)
         
     except Exception as e:
-    
-        zlog("{0}".format(e), "ERROR")
-    
-        zlog("{0}".format(e), "ERROR")
+        print(printcolors(e, "FAIL"))
         ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store]['1'] = e
         
     return ret
@@ -1157,34 +801,6 @@ def create_crond_file():
     crond_secondary = zettaknight_globs.crond_secondary
     
     ret = {}
-<<<<<<< .mine
-	
-    if zettaknight_globs.help_flag:
-        ret = """Create Crond File:
-
-    Function to create necessary crond files locally and remotely to schedule Zettaknight monitoring and management jobs.
-	All necessary information is pulled from configuration files.
-	
-	Usage:
-		zettaknight create_crond_file"""
-
-        return ret
-		
-||||||| .r504
-=======
-    
-    if zettaknight_globs.help_flag:
-        ret = """Create Crond File:
-
-    Function to create necessary crond files locally and remotely to schedule Zettaknight monitoring and management jobs.
-    All necessary information is pulled from configuration files.
-    
-    Usage:
-        zettaknight create_crond_file"""
-
-        return ret
-        
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn][crond_zettaknight] = {}
     ret[zettaknight_globs.fqdn][crond_primary] = {}
@@ -1196,7 +812,6 @@ def create_crond_file():
     try:
         with open(crond_zettaknight, "w") as myfile:
             
-            zlog("attempting to create {0}".format(crond_zettaknight), "INFO")
             
             cron_monitor_log = "/{0}/zfs_monitor_log".format(zettaknight_globs.zettaknight_store)
             cron_monitor = "root {0}/zettaknight.py zfs_monitor \"{1}\" &> {2}".format(zettaknight_globs.base_dir, zettaknight_globs.default_contact_info, cron_monitor_log)
@@ -1217,8 +832,6 @@ def create_crond_file():
             zpool_iostat = "root {0}/zettaknight.py mail_error generate_perf_stats &> {1}".format(zettaknight_globs.base_dir, zpool_iostat_log)
             zpool_iostat_line = update_crond(zpool_iostat, everyminute=5)
             myfile.write("{0}\n".format(zpool_iostat_line))
-            
-            zlog("successfully created {0}".format(crond_zettaknight), "SUCCESS")
         
         
             
@@ -1227,7 +840,7 @@ def create_crond_file():
         ret[zettaknight_globs.fqdn][crond_zettaknight]['0'] = "cron.d zettaknight built\n{0}".format(out)
                 
     except Exception as e:
-        zlog("{0}".format(e), "ERROR")
+        print(printcolors(e, "FAIL"))
         ret[zettaknight_globs.fqdn][crond_zettaknight]['1'] = {}
         ret[zettaknight_globs.fqdn][crond_zettaknight]['1'] = e
 
@@ -1237,10 +850,7 @@ def create_crond_file():
     ############### build zettaknight primary #########################
     ###################################################################
 
-    try:
-
-        zlog("attempting to create {0}".format(crond_primary), "INFO")
-    
+    try:        
         with open(crond_primary, "w") as myfile:
             for dataset in zettaknight_globs.zfs_conf.iterkeys():
                 if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
@@ -1266,10 +876,8 @@ def create_crond_file():
             out1 = myfile.read()
         ret[zettaknight_globs.fqdn][crond_primary]['0'] = "cron.d primary datasets built\n{0}".format(out1)
         
-        zlog("successfully created {0}".format(crond_primary), "SUCCESS")
-        
     except Exception as e:
-        zlog("{0}".format(e), "ERROR")
+        print(printcolors(e, "FAIL"))
         ret[zettaknight_globs.fqdn][crond_primary]['1'] = {}
         ret[zettaknight_globs.fqdn][crond_primary]['1'] = e
                     
@@ -1290,15 +898,10 @@ def create_crond_file():
 
                 remote_user = zettaknight_globs.zfs_conf[dataset]['user']
                 
-                zlog("adding DGR {0} to {1}".format(secondary, tertiary), "INFO")
-                
                 zettaknight_run = "root {0}/zettaknight.py mail_error &> /dev/null".format(zettaknight_globs.base_dir)
                 zettaknight_run_line = update_crond(zettaknight_run, hour=23, minute=30)
                  
                 if isinstance(tertiary, list):
-                
-                    zlog("tertiary variable {0} is a list for dataset {1}".format(tertiary, dataset), "DEBUG")
-                    
                     for t in tertiary:
                         dgr_cron = "root {0}/zettaknight.py mail_error sync {1} {2}@{3}\n".format(zettaknight_globs.base_dir, dataset, remote_user, t) 
                         dgr_cron_line = update_crond(dgr_cron, everyhour=1, minute=30)
@@ -1314,9 +917,6 @@ def create_crond_file():
                         for remote_server in zettaknight_globs.zfs_conf[dataset]['snap']['remote_server']:
                             #print("remote_server:{0} last_server:{1}".format(remote_server, last_server))
                             if remote_server is not last_server:
-                            
-                                zlog("attempting to create {0} on remote server {1}".format(zettaknight_globs.crond_zettaknight, remote_server), "INFO")
-                            
                                 ssh = paramiko.SSHClient()
                                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                                 ssh.connect(remote_server, username='root')
@@ -1336,9 +936,6 @@ def create_crond_file():
         
         if remote_cron_files:        
             for server in remote_cron_files.iterkeys():
-            
-                zlog("creating replication assignments in {0} for {1}".format(zettaknight_globs.crond_secondary, server), "INFO")
-            
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(server, username='root')
@@ -1350,14 +947,12 @@ def create_crond_file():
                 f.close()
                 ssh.close()
                 
-        ret[zettaknight_globs.fqdn][crond_secondary]['0'] = "Remote cron files created with the following data: \n    {0}".format(yaml.safe_dump(remote_cron_files, default_flow_style=False))
+        ret[zettaknight_globs.fqdn][crond_secondary]['0'] = "Remote cron files created with the following data: \n\t{0}".format(yaml.safe_dump(remote_cron_files, default_flow_style=False))
                 
     except Exception as e:
-        
-        zlog("{0}".format(e), "ERROR")
-        
         ret[zettaknight_globs.fqdn][crond_secondary]['1'] = str(e)
-        pass
+        print(printcolors(e , "FAIL"))
+        pass        
         
     return ret
     
@@ -1422,44 +1017,6 @@ def create_kwargs_from_args(*args):
 def install_hpnssh(**kwargs):
     
     ret = {}
-<<<<<<< .mine
-
-    ret = {}
-	
-    if zettaknight_globs.help_flag:
-        ret = """Install HPNSSH:
-
-	Function to attempt a basic install of HPNSSH.  (https://www.psc.edu/index.php/hpn-ssh)
-		
-	Usage:
-		zettaknight install_hpnssh
-		
-	Optional Arguments:
-		port
-			Specifies a non-default port to listen for ssh connections on (default is 22)"""
-
-        return ret
-		
-||||||| .r504
-=======
-
-    ret = {}
-    
-    if zettaknight_globs.help_flag:
-        ret = """Install HPNSSH:
-
-    Function to attempt a basic install of HPNSSH.  (https://www.psc.edu/index.php/hpn-ssh)
-        
-    Usage:
-        zettaknight install_hpnssh
-        
-    Optional Arguments:
-        port
-            Specifies a non-default port to listen for ssh connections on (default is 22)"""
-
-        return ret
-        
->>>>>>> .r546
     ret[zettaknight_globs.fqdn] = {}
     ret[zettaknight_globs.fqdn]['install hpnssh'] = {}
     

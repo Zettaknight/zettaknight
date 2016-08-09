@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-#
+
 #    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
 #
 #    This file is part of Zettaknight.
@@ -18,6 +18,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
 #
+
 # Import python libs
 
 import sys
@@ -28,6 +29,7 @@ import shutil
 import argparse
 import types
 import inspect
+import time
 from zettaknight_zpool import *
 from zettaknight_utils import *
 from zettaknight_zfs import *
@@ -82,45 +84,24 @@ def do_prep_work():
     this function is designed to do manage all things needed before zettaknight can run 
     '''
     ret = {}
+	
+    if zettaknight_globs.help_flag:
+        ret = """Do Prep Work:
+
+    Function is designed to do manage all things needed before zettaknight can run.  This includes verifying defined zpools and datasets are created,
+	and maintenance jobs are scheduled.
+
+	If Zettaknight is run without a subcommand, the Do Prep Work function is called.
+	
+	This function takes no arguments.  
+	"""
+
+        return ret
+			
     ret[zettaknight_globs.fqdn] = {}
     
     try:
-        if not os.path.isdir(zettaknight_globs.conf_dir_new): #if new directory does not exists, make it
-            os.mkdir(zettaknight_globs.conf_dir_new)
-            print(printcolors("created {0}".format(zettaknight_globs.conf_dir_new), "OKBLUE"))
-            
-        
-        ###########################################################################################
-        #test if zettaknight conf file exists, if not copy default conf file out of share and exit#
-        ###########################################################################################
-        try:
-            if not os.path.isdir(zettaknight_globs.conf_dir_new): #if new directory does not exists, make it
-                        os.mkdir(zettaknight_globs.conf_dir_new)
-                        
-            if not os.path.isfile(zettaknight_globs.config_file_new) or not os.path.isfile(zettaknight_globs.pool_config_file):
-                if os.path.isfile(zettaknight_globs.default_config_file):
-                    if not os.path.isfile(zettaknight_globs.config_file_new):
-                        shutil.copy(zettaknight_globs.default_config_file, zettaknight_globs.config_file_new)
-                        print(printcolors("copied {0} to {1}".format(zettaknight_globs.default_config_file, zettaknight_globs.config_file_new), "OKBLUE"))
-                else:
-                    raise IOError('default configuration file does not exist in {0}, cannot continue'.format(zettaknight_globs.default_config_file))
-                    
-                if os.path.isfile(zettaknight_globs.default_pool_config_file):
-                    if not os.path.isfile(zettaknight_globs.pool_config_file):
-                        shutil.copy(zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file)
-                        print(printcolors("copied {0} to {1}".format(zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file), "OKBLUE"))
-                else:
-                    raise IOError('default pool configuration file does not exist in {0}, cannot continue'.format(zettaknight_globs.default_pool_config_file))
-                
-                print(printcolors("\ndefault conf files have been created.\nEdit values then run zettaknight again to deploy the configuration", "WARNING"))
-                sys.exit(0)
-            
-        except Exception as e:
-            print(printcolors(e, "FAIL"))
-            sys.exit(1)
-        ###########################################################################################
-        ###########################################################################################
-        ###########################################################################################
+
         out0 = build_out_config()
         out1 = create_crond_file()
         out2 = backup_luks_headers()
@@ -148,12 +129,41 @@ def _get_conf():
     '''   
      
     config_dict = {}
-    
+        
+        
+    ###########################################################################################
+    #test if zettaknight conf file exists, if not copy default conf file out of share and exit#
+    ###########################################################################################
     try:
+        if not os.path.isdir(zettaknight_globs.conf_dir_new): #if new directory does not exists, make it
+                    os.mkdir(zettaknight_globs.conf_dir_new)
+                        
+        if not os.path.isfile(zettaknight_globs.config_file_new) or not os.path.isfile(zettaknight_globs.pool_config_file):
+            if os.path.isfile(zettaknight_globs.default_config_file):
+                if not os.path.isfile(zettaknight_globs.config_file_new):
+                    shutil.copy(zettaknight_globs.default_config_file, zettaknight_globs.config_file_new)
+                    print(printcolors("copied {0} to {1}".format(zettaknight_globs.default_config_file, zettaknight_globs.config_file_new), "OKBLUE"))
+            else:
+                raise IOError('default configuration file does not exist in {0}, cannot continue'.format(zettaknight_globs.default_config_file))
+                
+            if os.path.isfile(zettaknight_globs.default_pool_config_file):
+                    if not os.path.isfile(zettaknight_globs.pool_config_file):
+                        shutil.copy(zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file)
+                        print(printcolors("copied {0} to {1}".format(zettaknight_globs.default_pool_config_file, zettaknight_globs.pool_config_file), "OKBLUE"))
+            else:
+                raise IOError('default pool configuration file does not exist in {0}, cannot continue'.format(zettaknight_globs.default_pool_config_file))
+                
+            print(printcolors("\ndefault conf files have been created.\nEdit values then run zettaknight again to deploy the configuration", "WARNING"))
+            sys.exit(0)
+            
         conff = open(zettaknight_globs.config_file_new, 'r')   
         config_dict = yaml.safe_load(conff)
-    except IOError as e:
+        #test if config file is empty
+        if not config_dict:
+            raise ValueError('config file {0} is empty, cannot continue'.format(zettaknight_globs.config_file_new))
+    except Exception as e:
         print(printcolors(e, "FAIL"))
+        sys.exit(1)
     
     new_dict = {}
     #print(config_dict)
@@ -345,8 +355,9 @@ def _entry_point(argv=None):
     
     argparsing()
     
-    print(printcolors("zettaknight version {0}\n".format(zettaknight_globs.version), "WARNING")) # print version information
-    
+    print(printcolors("zettaknight version {0}\nstart: {1}".format(zettaknight_globs.version, datetime.datetime.today()), "WARNING")) # print version information
+    start_time = time.time()
+        
     py_ver = sys.version_info[:2]
     py_vers = "{0}.{1}".format(py_ver[0], py_ver[1])
     
@@ -452,7 +463,10 @@ def _entry_point(argv=None):
     suppress_list = ["check_group_quota", "find_versions", "recover"]
     if str(funcname) not in suppress_list:
         parse_output(ret)
-        
+    
+    
+    elapsed_time = time.time() - start_time
+    print(printcolors("elapsed time: {0} seconds".format(elapsed_time), "WARNING"))    
     return ret
         
     

@@ -23,6 +23,7 @@ version="0.0.3"
 running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 setopts="${running_dir}/setopts.sh"
 source $setopts || { echo "failed to source $setopts"; exit 1; }
+beacon="${running_dir}/beacon_all.sh"
 zpool="/sbin/zpool"
 
 function show_help () {
@@ -49,73 +50,12 @@ function check_previous () {
     fi
 }
 
-function beacon_disk () {
-
-    local disk="$1"
-
-    if [ $# -ne 1 ]; then
-        echo "function beacon_disk needs 1 argument: disk"
-        exit 1
-    fi
-    
-    #turn off beacons to start
-    if which ledctl > /dev/null; then
-                if [ $ledctl_reset_flag == 0 ]; then
-                echo -e "\nturning off any illuminated beacons"
-                ledctl locate_off=$(ls /dev/sd* | grep -v "/dev/sda[123456]" | awk 'BEING { OFS=","} { printf $1"," }')
-                check_previous ledctl locate_off=$(ls /dev/sd* | grep -v "/dev/sda[123456]" | awk 'BEING { OFS=","} { printf $1"," }')
-                        ledctl_reset_flag=1
-                fi
-    
-    
-        if ls /dev/ | grep "$disk" > /dev/null; then
-            #beacon disk since it's already a raw device
-            echo "raw device given, beaconing /dev/${disk}"
-            ledctl failure=/dev/$disk
-            check_previous ledctl failure=/dev/$disk
-        fi
-        
-        #find dm device for device mapped in /dev/disk/by-id
-        wwid=$(echo "$disk" | awk -F "-" '{print $NF}')
-        if ! [ -z "$wwid" ]; then
-            if ls /dev/disk/by-id | grep "$wwid" > /dev/null; then #if wwid is not empty
-                disk_info=$(multipath -ll | grep "$wwid") #whole output to keep from running multipath over and over to determine variables
-                mpath=$(echo "$disk_info" | awk '{print $1}') #mpathar etc
-                dm=$(echo "$disk_info" | awk '{print $3}')
-                devices=$(multipath -ll $mpath | grep ":" | awk '{print $3}') #disks that make up the mpath devices
-            
-                echo -e "\n$disk, $mpath, $dm"
-                
-                if which sginfo > /dev/null; then
-                    disk_serial=$(sginfo -a /dev/mapper/${mpath} | awk '/Serial/ {print $NF}' | tr -d "'") #serial number of multipath device
-                    echo -e "\tserial: $disk_serial"
-                fi
-                
-                if ! [ -z "$devices" ]; then
-                    echo -e "\nbeaconing $disk"
-                    for d in $devices; do
-                        smart_disk="$d" #this is used in smartctl since all paths are not needed
-                        if ls /dev/ | grep "$d" > /dev/null; then #make sure determined devices are raw devices
-                            ledctl failure=/dev/${d}
-                        else
-                            echo "$d is not recognized in /dev/, cannot beacon"
-                        fi
-                    done
-                else
-                    echo -e "cannot determine raw devices in mpath, device list returns null, cannot beacon disk"
-                fi
-            
-            fi
-        
-            if which smartctl > /dev/null; then
-                echo -e "\ngrabbing statistics for $disk"
-                smartctl -H /dev/${smart_disk}
-            else
-                echo "smartctl is needed for extended disk statistics"
-            fi
-        fi
-    fi        
-}
+#if which smartctl > /dev/null; then
+#                echo -e "\ngrabbing statistics for $disk"
+#                smartctl -H /dev/${smart_disk}
+#            else
+#                echo "smartctl is needed for extended disk statistics"
+#            fi
 
 function import_spares () {
 
@@ -168,7 +108,6 @@ for pool in ${zpool_array[@]}; do #read in the list of all zpools
         ledctl_reset_flag=0 #this flag is used in the function beacon_disk to make sure ledctl is only reset 1 time, not each consecutive time it's called, resetting what it's set
         for faulted_disk in $($zpool status $pool | grep "FAULTED" | awk '{print $1}' | grep -v "raidz" | grep -v "spare"); do #awk out the name of the item
             faulted_disk_array+=("$faulted_disk") #confirmed as a disk, add to array for replacement
-            beacon_disk $faulted_disk
         done
         
         #uncomment for debugging
@@ -178,6 +117,10 @@ for pool in ${zpool_array[@]}; do #read in the list of all zpools
             echo -e "\nfaulted items exist in the pool, but are not disk items, there is nothing this script can do"
             exit 1
         fi
+		
+		#beacon disks
+		echo -e "\nbeaconing disks"
+		$beacon ${faulted_disk_array[@]}
     
         echo -e "\ndisk(s) currently in a faulted state: ${faulted_disk_array[@]}"
         ###############################################################################################

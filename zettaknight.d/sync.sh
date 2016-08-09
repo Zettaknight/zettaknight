@@ -19,6 +19,10 @@
 #
 #set -x
 
+SECONDS=0 #bash built in
+
+echo "sync process started: $(date)"
+
 #source helper functions
 running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 setopts="${running_dir}/setopts.sh"
@@ -73,6 +77,7 @@ function ssh_over () {
 }
 
 
+
 #setopts vars
 setopts var "-d|--dataset" "local_dataset" "local_dataset to be replicated"
 setopts var "-s|--ssh" "remote_ssh" "Connection string for remote SSH connections, ie. root@somehost.somedomain.com"
@@ -89,6 +94,31 @@ lock_file_path=${Local_output_dir}/${lock_file}
 remote_output_dir="/tmp"
 remote_dataset="$local_dataset" #if no remote pool given, assume same as $local_dataset
 remote_host=$(echo ${remote_ssh} | cut -d "@" -f2)
+lock_file_exp=48 #hours until an alert will be sent about a existing lock file
+
+##################### check/create lockfile ######################
+##################################################################
+if [[ -f "$lock_file_path" ]]; then
+
+    lock_file_mtime=$(stat -c %Y $lock_file_path)
+    time_now=$(date +%s)
+    lock_file_hours_old=$(( (time_now - lock_file_mtime) / 3600 ))
+    
+    if [ $lock_file_hours_old -gt $lock_file_exp ]; then
+        echo "WARNING: lock file $lock_file_path for $local_dataset is older than $lock_file_exp hour(s), sync process cannot continue"
+        exit 1
+    else
+        echo "ALERT: lock file $lock_file_path exists for $local_dataset, but is $lock_file_hours_old hour(s) old, which is within the limit set at $lock_file_exp"
+        exit 0
+    fi
+else
+    touch "$lock_file_path"
+    check_previous "failed to create $lock_file_path"
+fi
+
+trap "{ rm -f $lock_file_path; exit; }" INT TERM EXIT
+##################################################################
+##################################################################
 
 #determine call locations
 find_call "zfs"
@@ -105,26 +135,12 @@ if [[ -z "$local_dataset" ]] || [[ -z "$remote_ssh" ]]; then
     exit 1
 fi
 
-##################### create lockfile ############################
-##################################################################
-if [[ -f "$lock_file_path" ]]; then
-    echo "$lock_file_path exists for $local_dataset, sync process cannot continue"
-    exit 1
-else
-    touch "$lock_file_path"
-    check_previous "failed to create $lock_file_path"
-fi
-
-trap "{ rm -f $lock_file_path; exit; }" INT TERM EXIT
-##################################################################
-##################################################################
-
 ################## check last snapshots ##########################
 ##################################################################
-remote_snap=$(ssh_over $zfs list -o name -t snapshot -H | grep "${remote_dataset}@" | tail -n 1)
+remote_snap=$(ssh_over $zfs list -r -o name -t snapshot -H "${remote_dataset}" | tail -n 1)
 remote_last_snap=$(echo "$remote_snap" | tr -d '\r')
 #num_remote_snaps=$(ssh_over $zfs list -o name -t snapshot -H | wc -l)
-local_last_snap=$($zfs list -o name -t snapshot -H | grep ${remote_dataset}@ | tail -1)
+local_last_snap=$($zfs list -r -o name -t snapshot -H "${remote_dataset}" | tail -n 1)
 #num_local_snaps=$($zfs list -o name -t snapshot -H | wc -l)
 ##################################################################
 ##################################################################
@@ -208,6 +224,20 @@ if [[ "$pull_flag" == 1 ]]; then
             #fi
         fi
     fi
+fi
+
+duration=$SECONDS
+
+if [[ $duration -lt 3600 ]]; then
+    if [[ $duration -gt 60 ]]; then
+        duration=$(($duration / 60))
+        echo "sync complete after $duration minute(s)"
+    else
+        echo "sync complete after $duration second(s)"
+    fi
+else
+    duration=$(($duration / 3600))
+    echo "sync complete after $duration hour(s)"
 fi
 
 ##################################################################

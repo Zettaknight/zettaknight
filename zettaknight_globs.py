@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 #
 #    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
 #
@@ -18,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
 #
-
+# -*- coding: utf-8 -*-
  
  
 ###############################################################################################
@@ -32,12 +31,12 @@ zpool_disk_list = "/tmp/disk_list.txt" #list of disks separated by newline to be
 #if no contact information is provided within the configuration file
 #zettaknight will contact this/these address(es) by default
 #multiple entires should be separated by a space
-default_contact_info = False
+default_contact_info = "zfs_admin@lists.clemson.edu"
  
 #Optional MatterMost webhook integration
 mm_flag = False
-mm_webhook = False 
-mm_icon = False
+mm_webhook = "https://cu-inf-p-mtm01.clemson.edu/hooks/7fpq155hrtfqfb5hfs64eo71oa"
+mm_icon = "https://cu-inf-p-mtm01.clemson.edu/static/images/zettaknight.png"
  
 ###############################################################################################
 ################## DO NOT MODIFY ANYTHING BELOW THIS LINE #####################################
@@ -69,6 +68,9 @@ zettaknight_store = "{0}/zettaknight/{1}".format(pool_name, fqdn)
 #determines the current date
 today_date = str(datetime.datetime.today().strftime('%Y%m%d_%H%M'))
 today_date2 = str(datetime.datetime.today().strftime('%Y%m%d'))
+
+#variable to determine the logging level for zlog
+level_zlog = "DEBUG"
  
 #the following sets the directory this file is in as the base for where all
 #other files necessary for zettaknight are referenced

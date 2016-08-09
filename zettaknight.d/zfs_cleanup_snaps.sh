@@ -45,7 +45,6 @@ function check_previous () {
                 local exit_status=$?
                 if ! [ $exit_status == 0 ]; then
                         echo "${exit_status} : $@"
-                        clean_up
                         exit 1
                 fi
 }
@@ -96,9 +95,30 @@ if [ -z $day_keep ] || [ -z $dataset ]; then #both arguments are required, exit 
         exit 1
 fi
 
+##################### check/create lockfile ######################
+##################################################################
+
+running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+Local_output_dir="$running_dir"
+lock_file=$(echo "cleanup_snap.${dataset}.lock" | tr -d "/")
+lock_file_path=${Local_output_dir}/${lock_file}
+
+if [[ -f "$lock_file_path" ]]; then
+    echo "$lock_file_path exists for $local_dataset, snap cleanup process cannot continue"
+    exit 1
+else
+    touch "$lock_file_path"
+    check_previous failed to create $lock_file_path
+fi
+
+trap "{ rm -f $lock_file_path; exit; }" INT TERM EXIT
+##################################################################
+##################################################################
+
+
 echo "$dataset: destroying snapshots older than $day_keep days"
 
-for i in $($zfs list -H -o name,creation -t snapshot | grep -w $dataset | awk '{print $1"@"$3"@"$4"@"$5"@"$6}'); do
+for i in $($zfs list -r -H -o name,creation -t snapshot "$dataset" | awk '{print $1"@"$3"@"$4"@"$5"@"$6}'); do
     snapshot=$(echo "$i" | awk 'BEGIN {FS="@"}{print $1"@"$2}')
     snapday=$(echo "$i" | awk 'BEGIN {FS="@"}{print $3" "$4" "$5" "$6}')
     snapsecs=$(date --date="$snapday" +%s)

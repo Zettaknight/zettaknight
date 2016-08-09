@@ -18,7 +18,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
 #
-
 # Import python libs
 
 import zettaknight_utils
@@ -35,6 +34,22 @@ import re
 def find_versions(dataset, filename, quiet=False):
     '''
     '''
+	
+    if zettaknight_globs.help_flag:
+        ret = """Find Versions:
+
+	Usage:
+		zettaknight find_versions zfs_data/<some dataset> <some filename>
+	
+    Searches snapshots of provided dataset for previous versions of filename.
+
+    Required Arguments:
+        dataset
+            Specifies the dataset whose snapshots will be searched.
+		filename
+			Defines target file(s) to find previous versions of.  This can be a full path to a file (/zfs_data/<some dataset>/<some filename>.<ext>), just a filename with or without an extension (<some filename> or <some filename>.<ext>), or just an extension (.<ext>)"""
+        return ret
+		
     zettaknight_utils.check_quiet(quiet)
     
     snaps = {}
@@ -107,7 +122,25 @@ def find_versions(dataset, filename, quiet=False):
 def recover(snapshot, filename, relocate=None):
     '''
     '''
-    
+    if zettaknight_globs.help_flag:
+        ret = """Recover:
+
+	Usage:
+		zettaknight recover <snapshot> <filepath> (<directory to recover file to>)*optional
+	
+    Recovers a previous version of a file or folder from a specified snapshot.  Information to use in calling zettaknight recover can be found in the output from the find_versions function.  By default, files/folders will be recovered to their original location with .R appended to the end of the name.
+
+    Required Arguments:
+        snapshot
+            Specifies the snapshot to recover files from.
+		filename
+			Defines target file(s) to recover.  This should be the full path to a file or folder (/zfs_data/<some dataset>/<some filename>.<ext>)
+			
+	Optional Arguments:
+		relocate
+			Defines an alternate path to recover files/folders to.  If used, .R will not be appended, and the recover will overwrite any existing files."""
+        return ret
+		
     file = filename
     snap = snapshot
     dataset, snap_date = snap.split('@', 1)
@@ -238,6 +271,19 @@ def audit_last_snap(dataset):
     '''
     '''
     
+    if zettaknight_globs.help_flag:
+        ret = """Last Snapshot Audit:
+
+	Usage:
+		zettaknight audit_last_snap <dataset>
+	
+    Returns an audit of all differences between the two most recent snapshots of a dataset.
+
+    Required Arguments:
+        dataset
+            Specifies the dataset whose snapshots will be audited."""
+        return ret
+		
     snaps = {}
     ret = {}
     ret[dataset] = {}
