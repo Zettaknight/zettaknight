@@ -37,6 +37,6 @@ for pool in $($zpool list -H -o name); do
         date_log=$(date +'%Y%m%d%H%M%S')
         human_date_log=$(date +'%Y-%m-%d_%H.%M.%S')
         echo "$human_date_log" | tee -a $outfile
-        $zpool iostat $pool $poll_int $poll_count | tail -${tail_num} | awk 'BEGIN { OFS=","} {rops=rops+$4} {wops=wops+$5} {rband=rband+$6} {wband=wband+$7} END {print $1, $2, $3, rops/NR, wops/NR, rband/NR, wband/NR}'  | tee -a $outfile
+        $zpool iostat $pool $poll_int $poll_count | tail -${tail_num} | awk 'BEGIN{k=1000;m=1000*k;g=1000*m;OFS=","} {x=substr($5,1,length($5)-1)*1} $5~/[Kk]$/{x*=k} $5~/[mM]$/{x*=m} $5~/[Gg]$/{x*=g} $5~/[01234567890]$/{x=$5} {wops=wops+x} {x=substr($4,1,length($4)-1)*1} $4~/[Kk]$/{x*=k} $4~/[mM]$/{x*=m} $4~/[Gg]$/{x*=g} $4~/[01234567890]$/{x=$4} {rops=rops+x} {x=substr($6,1,length($6)-1)*1} $6~/[Kk]$/{x/=k} $6~/[mM]$/{x=$6} $6~/[Gg]$/{x*=k} $6~/[01234567890]$/{x/=m} {rband=rband+x} {x=substr($7,1,length($7)-1)*1} $7~/[Kk]$/{x/=k} $7~/[mM]$/{x=$7} $7~/[Gg]$/{x*=k} $7~/[01234567890]$/{x/=m} {wband=wband+x} END {print $1, $2, $3, rops/NR, wops/NR, rband/NR, wband/NR}'  | tee -a $outfile
     fi
 done

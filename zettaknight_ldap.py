@@ -18,7 +18,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
 #
-
 # Import python libs
  
 import inspect
@@ -40,7 +39,7 @@ def create_cifs_share(**kwargs):
     if zettaknight_globs.help_flag:
         ret = """Create CIFS Share:
 
-    Function to create a new dataset with proper permissions for user/group access over CIFS on primary and secondary ZFS servers.  Arguments should be passed as key/value pairs.
+    Function to create a new directory with proper permissions for user/group access over CIFS on primary and secondary ZFS servers.  Arguments should be passed as key/value pairs.
 
     Required Arguments:
         user or group
@@ -204,8 +203,10 @@ def set_cifs_quota(**kwargs):
                 
     ret[dset] = {}
     
-    quota_cmd = "/sbin/zfs set quota={0} {1}".format(quota, dset)
+    quota_cmd = "/sbin/zfs set refquota={0} {1}".format(quota, dset)
     ret[dset]['Set User Quota'] = zettaknight_utils.spawn_job(quota_cmd)
+    
+    
     
     return ret
         
@@ -215,6 +216,20 @@ def get_cifs_quota(**kwargs):
     get quota for user or group cifs share.
     '''
     
+    if zettaknight_globs.help_flag:
+        ret = """Get CIFS Quota:
+
+    Function to get and display quota on a user or group CIFS share.  Arguments should be passed as key/value pairs.
+
+    Required Arguments:
+        user or group
+            Specifies the username or group name tied to the relevant share to set the quota on.
+
+   Optional Arguments:
+        dataset
+            Specifies the parent dataset to search for the share under.  If not specified, the default will be pulled from Zettaknight conf files"""
+        return ret
+		
     ret = {}
     user = False
     group = False
@@ -248,7 +263,7 @@ def get_cifs_quota(**kwargs):
         dset = "{0}/{1}".format(dataset, group)  
     
     ret[dset] = {}
-    quota_cmd = "/sbin/zfs get quota -H {0} -o value".format(dset)
+    quota_cmd = "/sbin/zfs get refquota -H {0} -o value".format(dset)
     ret[dset]['Get User Quota'] = zettaknight_utils.spawn_job(quota_cmd)
     
     return ret
@@ -259,6 +274,20 @@ def get_cifs_share(**kwargs):
     get quota for user or group cifs share.
     '''
     
+    if zettaknight_globs.help_flag:
+        ret = """Get CIFS Share:
+
+    Returns location UNC path of CIFS share for provided user or group.  Arguments should be passed as key/value pairs.
+
+    Required Arguments:
+        user or group
+            Specifies the username or group name to query.
+
+   Optional Arguments:
+        dataset
+            Specifies the parent dataset to query for the share under.  If not specified, the default will be pulled from Zettaknight conf files"""
+        return ret
+		
     ret = {}
     user = False
     group = False

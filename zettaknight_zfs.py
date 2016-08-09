@@ -35,6 +35,21 @@ def nuke(pool, force=True):
     '''
     '''
     ret = {}
+
+    if zettaknight_globs.help_flag:
+        ret = """Nuke:
+
+    Destroys a zpool and cleans up files associated with the zpool being destroyed.
+
+	Usage:
+		zettaknight nuke <pool_name>
+		
+    Required Arguments:
+        pool_name
+            Specifies the zpool to destroy."""
+
+        return ret
+			
     ret[pool] = {}
     ret[pool]['Nuke Zpool'] = {}
  
@@ -62,6 +77,21 @@ def zfs_maintain(dset=False):
     '''
     
     ret = {}
+	
+    if zettaknight_globs.help_flag:
+        ret = """ZFS Maintain:
+
+    The zfs_maintain function reads in dataset and maintenance requirements from configuration files and enforces defined configurations.
+
+	Usage:
+		zettaknight zfs_maintain (<dataset>)
+		
+    Optional Arguments:
+        dataset
+            Specifies the dataset to run maintenance functions on.  If not provided, all defined datasets will have maintenance performed."""
+
+        return ret
+		
     protocol = "ssh"
     
     if dset and str(dset) not in zettaknight_globs.zfs_conf.iterkeys():
@@ -76,7 +106,12 @@ def zfs_maintain(dset=False):
                 continue
                 
         ret[dataset] = {}
+        
         ret[dataset]['Cleanup'] = cleanup_snaps(dataset, zettaknight_globs.zfs_conf[dataset]['retention'])
+        
+        if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
+            ret[dataset]['snapshot'] = create_snap(dataset, "quiet")
+        
         if zettaknight_globs.zfs_conf[dataset]['quota']:
             ret[dataset]['Quota'] = set_quota(dataset, zettaknight_globs.zfs_conf[dataset]['quota'])
 
@@ -88,9 +123,7 @@ def zfs_maintain(dset=False):
 
         if zettaknight_globs.zfs_conf[dataset]['refreservation']:
             ret[dataset]['Refreservation'] = set_refreservation(dataset, zettaknight_globs.zfs_conf[dataset]['refreservation'])
-        
-        if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
-            ret[dataset]['snapshot'] = create_snap(dataset, "quiet")
+
 
     #print(ret)
     #parse_output(ret)
@@ -100,6 +133,26 @@ def failover(dataset, remote_server=False):
     '''
     '''
     ret = {}
+	
+    if zettaknight_globs.help_flag:
+        ret = """Failover:
+
+    Attempts a controlled failover for provided dataset to remote host defined in configuration files.
+
+	Usage:
+		zettaknight failover <dataset>
+		
+    Required Arguments:
+        dataset
+            Specifies the dataset to fail over.
+			
+	Optional Arguments:
+		remote_server
+			Specifies a remote server to attempt a failover to.  By default, this information is pulled from
+			dataset configuration files."""
+
+        return ret
+		
     ret[dataset] = {}
     ret[dataset]['Failover'] = {}
  
@@ -138,6 +191,21 @@ def scrub(pool):
     '''
  
     ret = {}
+	
+    if zettaknight_globs.help_flag:
+        ret = """Scrub:
+
+    Initiates a scrub of provided pool.
+
+	Usage:
+		zettaknight scrub <pool>
+		
+    Required Arguments:
+        pool
+            Specifies the pool to scrub."""
+
+        return ret
+		
     ret[pool] = {}
     ret[pool]['Scrub'] = {}
     scrub_cmd = "/sbin/zpool scrub {0}".format(pool)
@@ -177,28 +245,32 @@ def take_snap(dataset, user, remote_server, secure, nosnap=False, pull_snap=Fals
 def create_snap(dataset, quiet=False):
     '''
     '''
+    
+    zettaknight_utils.zlog("create_snap started", "DEBUG")
  
     zettaknight_utils.check_quiet(quiet)
  
     snap = "{0}@{1}".format(dataset, zettaknight_globs.today_date)
-    gerp_run = zettaknight_utils.pipe_this2("/sbin/zfs list -r -t snapshot -o name -H {0} | /bin/grep {1}".format(dataset, snap))
-    gerp_out = gerp_run.stdout.read()
+    snap_list = zettaknight_utils.spawn_job("/sbin/zfs list -r -t snapshot -o name -H {0}".format(snap))
  
-    if int(gerp_run.returncode) is not 0:
+    if int(0) not in snap_list.iterkeys():
         ret = zettaknight_utils.spawn_job("/sbin/zfs snapshot -r {0}".format(snap))
- 
-    if int(gerp_run.returncode) == 0:
+    else:
         ret = {0: "Snapshot {0} already exists.".format(snap)}
+        zettaknight_utils.zlog("snapshot {0} already exists".format(snap), "INFO")
  
     for exit_status, output in ret.iteritems():
         if str(exit_status) == "0" and str(output) == "Job succeeded":
             ret[exit_status] = "Snapshot created: {0}".format(snap)
+            zettaknight_utils.zlog("snapshot created: {0}".format(snap), "SUCCESS")
  
     if not quiet:
         snap_out = {}
         snap_out[dataset] = {}
         snap_out[dataset][inspect.stack()[0][3]] = ret
         zettaknight_utils.parse_output(snap_out)
+        
+    zettaknight_utils.zlog("create_snap exiting", "DEBUG")    
  
     return ret
  
@@ -211,6 +283,23 @@ def set_quota(dataset, quota):
     quota_cmd = "/sbin/zfs set quota={0} {1}".format(quota, dataset)
     
     ret = {}
+	
+    if zettaknight_globs.help_flag:
+        ret = """Set Quota:
+
+    Sets a ZFS quota on provided dataset.
+
+	Usage:
+		zettaknight set_quota <dataset> <quota>
+		
+    Required Arguments:
+        dataset
+            Specifies the dataset to set a quota for.
+		quota
+			Specifies the quota to set.  ie. 1T, 100G, etc."""
+
+        return ret
+		
     ret[dataset] = {}
     ret[dataset]['Quota'] = zettaknight_utils.spawn_job(quota_cmd)
     
@@ -227,6 +316,23 @@ def set_refquota(dataset, refquota):
     refquota_cmd = "/sbin/zfs set refquota={0} {1}".format(refquota, dataset)
     
     ret = {}
+	
+    if zettaknight_globs.help_flag:
+        ret = """Set RefQuota:
+
+    Sets a ZFS refquota on provided dataset.
+
+	Usage:
+		zettaknight set_refquota <dataset> <refquota>
+		
+    Required Arguments:
+        dataset
+            Specifies the dataset to set a quota for.
+		refquota
+			Specifies the quota to set.  ie. 1T, 100G, etc."""
+
+        return ret
+		
     ret[dataset] = {}
     ret[dataset]['refquota'] = zettaknight_utils.spawn_job(refquota_cmd)
     
@@ -248,6 +354,23 @@ def set_reservation(dataset, reservation, quiet=False):
     
     
     ret = {}
+	
+    if zettaknight_globs.help_flag:
+        ret = """Set Reservation:
+
+    Sets a ZFS reservation on provided dataset.
+
+	Usage:
+		zettaknight set_reservation <dataset> <reservation>
+		
+    Required Arguments:
+        dataset
+            Specifies the dataset to set a reservation for.
+		reservation
+			Specifies the reservation to set.  ie. 1T, 100G, etc."""
+
+        return ret
+		
     ret[dataset] = {}
     ret[dataset]['Reservation'] = zettaknight_utils.spawn_job(reservation_cmd)
               
@@ -264,6 +387,23 @@ def set_refreservation(dataset, refreservation):
     refreservation_cmd = "/sbin/zfs set refreservation={0} {1}".format(refreservation, dataset)
     
     ret = {}
+
+    if zettaknight_globs.help_flag:
+        ret = """Set Refreservation:
+
+    Sets a ZFS Refreservation on provided dataset.
+
+	Usage:
+		zettaknight set_refreservation <dataset> <refreservation>
+		
+    Required Arguments:
+        dataset
+            Specifies the dataset to set a refreservation for.
+		refreservation
+			Specifies the refreservation to set.  ie. 1T, 100G, etc."""
+
+        return ret
+		
     ret[dataset] = {}
     ret[dataset]['refreservation'] = zettaknight_utils.spawn_job(refreservation_cmd)
     
@@ -287,8 +427,26 @@ def sync(dataset, remote_ssh, identity_file=False, pull_snap=False):
     '''
     '''
     
+    if zettaknight_globs.help_flag:
+        ret = """Sync:
+
+    Syncs snapshots to a remote server.
+
+	Usage:
+		zettaknight sync <dataset> <remote_ssh> 
+		
+    Required Arguments:
+        dataset
+            Specifies the dataset to sync.
+		remote_ssh
+			Specifies remote server to sync snapshots to."""
+
+        return ret
+		
     sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, dataset, remote_ssh)
     
+    if zettaknight_globs.identity_file:
+        identity_file = zettaknight_globs.identity_file
     if identity_file:
         sync_cmd = "{0} -i {1}".format(sync_cmd, identity_file)
     if pull_snap:
@@ -308,6 +466,20 @@ def sync_all():
     '''
     
     ret = {}
+	
+    if zettaknight_globs.help_flag:
+        ret = """Sync All:
+
+    Syncs snapshots for all defined datasets.
+	
+	Datasets to sync and remote targets are pulled from the Zettaknight configuration files.
+
+	Usage:
+		zettaknight sync_all """
+
+        return ret
+
+		
     protocol = "ssh"
     
     for dataset in zettaknight_globs.zfs_conf.iterkeys():            
@@ -368,7 +540,7 @@ def rename_dataset(**kwargs):
             print(remote_server)
     
     except Exception as e:
-        print(zettaknight_utils.printcolors(e, "FAIL"))
+        zettaknight_utils.zlog("{0}".format(e), "ERROR")
         sys.exit(1)
         
     ret = {}
@@ -390,7 +562,7 @@ def rename_dataset(**kwargs):
         cmd = "zfs rename {0} {1}".format(dataset, new_dataset)
         zettaknight_utils.spawn_job(cmd)
     except Exception as e:
-        print(zettaknight_utils.printcolors(e, "FAIL"))
+        zettaknight_utils.zlog("{0}".format(e), "ERROR")
         sys.exit(1)
         
         
@@ -418,7 +590,7 @@ def replace_string(string, new_string, file):
                 #ret[zettaknight_globs.fqdn]['replace_string'] = {0 : "replaced {0} with {1}".format(string, line)}
             sys.stdout.write(line)
     except Exception as e:
-        print(printcolors(e, "FAIL"))
+        zettaknight_utils.zlog("{0}".format(e), "ERROR")
         sys.exit(1)
         
     return ret
@@ -529,6 +701,7 @@ def build_out_config(force=False):
                 if int(chk_code) is not 0:
                     ret[zettaknight_globs.fqdn]['Create {0}'.format(zpool)] = {}
                     out1 = zettaknight_zpool.create_zpool(zpool, **zettaknight_globs.zpool_conf[zpool])
+                    zettaknight_utils.zlog("zpool {0} created".format(zpool), "INFO")
                     ret[zettaknight_globs.fqdn]['Create {0}'.format(zpool)] = out1[zpool]['Create Zpool']       
         
         #print(ret)
@@ -538,11 +711,12 @@ def build_out_config(force=False):
             chk_code, chk_msg = d.popitem()
             if int(chk_code) is not 0:
                 add_dataset(dataset, **create_config)
+                zettaknight_utils.zlog("dataset {0} created on zpool {1}".format(dataset, zpool), "INFO")
             
         ret[zettaknight_globs.fqdn]['Build Config']['0'] = "Everything Looks Okay Here"
     
     except Exception as e:
-        print(zettaknight_utils.printcolors(e, "FAIL"))
+        zettaknight_utils.zlog("{0}".format(e), "ERROR")
         ret[zettaknight_globs.fqdn]['Build Config']['1'] = e
         
     return ret
