@@ -1184,7 +1184,7 @@ def create_crond_file():
                 remote_user = zettaknight_globs.zfs_conf[dataset]['user']
                 
                 zettaknight_run = "root {0}/zettaknight.py mail_error &> /dev/null".format(zettaknight_globs.base_dir)
-                zlog("[create_crond_file] --> update_crond:\n\t{1}".format(zettaknight_run), "DEBUG")
+                zlog("[create_crond_file] --> update_crond:\n\t{0}".format(str(zettaknight_run)), "DEBUG")
                 zettaknight_run_line = update_crond(zettaknight_run, hour=23, minute=30)
                  
                 if isinstance(tertiary, list):
