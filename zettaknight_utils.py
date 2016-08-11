@@ -1246,7 +1246,7 @@ def create_crond_file():
             
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(remote_server, username='root', key_filename=zettaknight_globs.identity_file)
+                ssh.connect(server, username='root', key_filename=zettaknight_globs.identity_file)
                 sftp = ssh.open_sftp()
                 #write zettaknight_secondary file for remote replication to tertiary
                 f = sftp.open(zettaknight_globs.crond_secondary, 'w')
