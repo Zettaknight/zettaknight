@@ -220,6 +220,7 @@ def parse_output(out_dict):
     for dataset in out_dict.iterkeys():
         json_out = {}
         json_out["dataset"] = dataset
+        json_out["elapsed time (sec)"] = zettaknight_globs.elapsed_time
         for job in out_dict[dataset].iterkeys():
             json_out["job"] = job
             for exit_status, output in out_dict[dataset][job].iteritems():
@@ -1184,7 +1185,7 @@ def create_crond_file():
                 remote_user = zettaknight_globs.zfs_conf[dataset]['user']
                 
                 zettaknight_run = "root {0}/zettaknight.py mail_error &> /dev/null".format(zettaknight_globs.base_dir)
-                zlog("[create_crond_file] --> update_crond:\n\t{1}".format(zettaknight_run), "DEBUG")
+                zlog("[create_crond_file] --> update_crond:\n\t{0}".format(str(zettaknight_run)), "DEBUG")
                 zettaknight_run_line = update_crond(zettaknight_run, hour=23, minute=30)
                  
                 if isinstance(tertiary, list):
@@ -1215,7 +1216,7 @@ def create_crond_file():
                             
                                 ssh = paramiko.SSHClient()
                                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                                ssh.connect(remote_server, username='root', key_filename=zettaknight_globs.identity_file)
+                                ssh.connect(remote_server, username='root')
                                 sftp = ssh.open_sftp()
                                 #write zettaknight crond file
                                 
@@ -1246,7 +1247,7 @@ def create_crond_file():
             
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(server, username='root', key_filename=zettaknight_globs.identity_file)
+                ssh.connect(server, username='root')
                 sftp = ssh.open_sftp()
                 #write zettaknight_secondary file for remote replication to tertiary
                 f = sftp.open(zettaknight_globs.crond_secondary, 'w')

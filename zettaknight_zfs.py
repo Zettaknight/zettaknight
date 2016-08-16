@@ -19,7 +19,7 @@
 #    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Import python libs
-
+ 
 import inspect
 import re
 import sys
@@ -41,15 +41,15 @@ def nuke(pool, force=True):
 
     Destroys a zpool and cleans up files associated with the zpool being destroyed.
 
-    Usage:
-        zettaknight nuke <pool_name>
-        
+	Usage:
+		zettaknight nuke <pool_name>
+		
     Required Arguments:
         pool_name
             Specifies the zpool to destroy."""
 
         return ret
-            
+			
     ret[pool] = {}
     ret[pool]['Nuke Zpool'] = {}
  
@@ -77,21 +77,21 @@ def zfs_maintain(dset=False):
     '''
     
     ret = {}
-    
+	
     if zettaknight_globs.help_flag:
         ret = """ZFS Maintain:
 
     The zfs_maintain function reads in dataset and maintenance requirements from configuration files and enforces defined configurations.
 
-    Usage:
-        zettaknight zfs_maintain (<dataset>)
-        
+	Usage:
+		zettaknight zfs_maintain (<dataset>)
+		
     Optional Arguments:
         dataset
             Specifies the dataset to run maintenance functions on.  If not provided, all defined datasets will have maintenance performed."""
 
         return ret
-        
+		
     protocol = "ssh"
     
     if dset and str(dset) not in zettaknight_globs.zfs_conf.iterkeys():
@@ -133,26 +133,26 @@ def failover(dataset, remote_server=False):
     '''
     '''
     ret = {}
-    
+	
     if zettaknight_globs.help_flag:
         ret = """Failover:
 
     Attempts a controlled failover for provided dataset to remote host defined in configuration files.
 
-    Usage:
-        zettaknight failover <dataset>
-        
+	Usage:
+		zettaknight failover <dataset>
+		
     Required Arguments:
         dataset
             Specifies the dataset to fail over.
-            
-    Optional Arguments:
-        remote_server
-            Specifies a remote server to attempt a failover to.  By default, this information is pulled from
-            dataset configuration files."""
+			
+	Optional Arguments:
+		remote_server
+			Specifies a remote server to attempt a failover to.  By default, this information is pulled from
+			dataset configuration files."""
 
         return ret
-        
+		
     ret[dataset] = {}
     ret[dataset]['Failover'] = {}
  
@@ -191,21 +191,21 @@ def scrub(pool):
     '''
  
     ret = {}
-    
+	
     if zettaknight_globs.help_flag:
         ret = """Scrub:
 
     Initiates a scrub of provided pool.
 
-    Usage:
-        zettaknight scrub <pool>
-        
+	Usage:
+		zettaknight scrub <pool>
+		
     Required Arguments:
         pool
             Specifies the pool to scrub."""
 
         return ret
-        
+		
     ret[pool] = {}
     ret[pool]['Scrub'] = {}
     scrub_cmd = "/sbin/zpool scrub {0}".format(pool)
@@ -283,23 +283,23 @@ def set_quota(dataset, quota):
     quota_cmd = "/sbin/zfs set quota={0} {1}".format(quota, dataset)
     
     ret = {}
-    
+	
     if zettaknight_globs.help_flag:
         ret = """Set Quota:
 
     Sets a ZFS quota on provided dataset.
 
-    Usage:
-        zettaknight set_quota <dataset> <quota>
-        
+	Usage:
+		zettaknight set_quota <dataset> <quota>
+		
     Required Arguments:
         dataset
             Specifies the dataset to set a quota for.
-        quota
-            Specifies the quota to set.  ie. 1T, 100G, etc."""
+		quota
+			Specifies the quota to set.  ie. 1T, 100G, etc."""
 
         return ret
-        
+		
     ret[dataset] = {}
     ret[dataset]['Quota'] = zettaknight_utils.spawn_job(quota_cmd)
     
@@ -316,23 +316,23 @@ def set_refquota(dataset, refquota):
     refquota_cmd = "/sbin/zfs set refquota={0} {1}".format(refquota, dataset)
     
     ret = {}
-    
+	
     if zettaknight_globs.help_flag:
         ret = """Set RefQuota:
 
     Sets a ZFS refquota on provided dataset.
 
-    Usage:
-        zettaknight set_refquota <dataset> <refquota>
-        
+	Usage:
+		zettaknight set_refquota <dataset> <refquota>
+		
     Required Arguments:
         dataset
             Specifies the dataset to set a quota for.
-        refquota
-            Specifies the quota to set.  ie. 1T, 100G, etc."""
+		refquota
+			Specifies the quota to set.  ie. 1T, 100G, etc."""
 
         return ret
-        
+		
     ret[dataset] = {}
     ret[dataset]['refquota'] = zettaknight_utils.spawn_job(refquota_cmd)
     
@@ -354,23 +354,23 @@ def set_reservation(dataset, reservation, quiet=False):
     
     
     ret = {}
-    
+	
     if zettaknight_globs.help_flag:
         ret = """Set Reservation:
 
     Sets a ZFS reservation on provided dataset.
 
-    Usage:
-        zettaknight set_reservation <dataset> <reservation>
-        
+	Usage:
+		zettaknight set_reservation <dataset> <reservation>
+		
     Required Arguments:
         dataset
             Specifies the dataset to set a reservation for.
-        reservation
-            Specifies the reservation to set.  ie. 1T, 100G, etc."""
+		reservation
+			Specifies the reservation to set.  ie. 1T, 100G, etc."""
 
         return ret
-        
+		
     ret[dataset] = {}
     ret[dataset]['Reservation'] = zettaknight_utils.spawn_job(reservation_cmd)
               
@@ -393,17 +393,17 @@ def set_refreservation(dataset, refreservation):
 
     Sets a ZFS Refreservation on provided dataset.
 
-    Usage:
-        zettaknight set_refreservation <dataset> <refreservation>
-        
+	Usage:
+		zettaknight set_refreservation <dataset> <refreservation>
+		
     Required Arguments:
         dataset
             Specifies the dataset to set a refreservation for.
-        refreservation
-            Specifies the refreservation to set.  ie. 1T, 100G, etc."""
+		refreservation
+			Specifies the refreservation to set.  ie. 1T, 100G, etc."""
 
         return ret
-        
+		
     ret[dataset] = {}
     ret[dataset]['refreservation'] = zettaknight_utils.spawn_job(refreservation_cmd)
     
@@ -423,62 +423,41 @@ def cleanup_snaps(dataset, retention):
  
     return ret
  
-def sync(*args, **kwargs):
+def sync(dataset, remote_ssh, identity_file=False, pull_snap=False):
     '''
     '''
-    
-    zettaknight_utils.zlog("kwargs recieved by sync\n\t{0}".format(kwargs), "DEBUG")
     
     if zettaknight_globs.help_flag:
         ret = """Sync:
 
     Syncs snapshots to a remote server.
 
-    Usage:
-        zettaknight sync <dataset> <remote_ssh> 
-        
+	Usage:
+		zettaknight sync <dataset> <remote_ssh> 
+		
     Required Arguments:
         dataset
             Specifies the dataset to sync.
-        remote_ssh
-            Specifies remote server to sync snapshots to."""
+		remote_ssh
+			Specifies remote server to sync snapshots to."""
 
         return ret
+		
+    sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, dataset, remote_ssh)
     
-    #if 'priority' in zettaknight_globs.zfs_conf[dataset]:
-    #    priority = zettaknight_globs.zfs_conf[dataset]['priority']
-    #    print(priority)
-    #    if isinstance(priority, int):
-    #        print("priority is an integer")
-    #    os.nice(int(priority))
-    try:
-        if 'dataset' and 'remote_ssh' in kwargs.iterkeys():
-            sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, kwargs['dataset'], kwargs['remote_ssh'])
-        else:
-            raise Exception("dataset and remote_ssh is are required kwargs for sync")
+    if zettaknight_globs.identity_file:
+        identity_file = zettaknight_globs.identity_file
+    if identity_file:
+        sync_cmd = "{0} -i {1}".format(sync_cmd, identity_file)
+    if pull_snap:
+        sync_cmd = "{0} -p".format(sync_cmd)
     
-        if 'identity_file' in kwargs.iterkeys():
-            sync_cmd = "{0} -i {1}".format(sync_cmd, kwargs['identity_file'])
-        if 'pull_snap' in kwargs.iterkeys():
-            if kwargs['pull_snap']:
-                sync_cmd = "{0} -p".format(sync_cmd)
-        if 'priority' in kwargs.iterkeys():
-            sync_cmd = "{0} -n {1}".format(sync_cmd, kwargs['priority'])
-        if 'wait' in kwargs.iterkeys():
-            wait = kwargs['wait']
-        else:
-            wait = True
-    
-        if str(inspect.stack()[1][3]) is 'sync_all':
-            zettaknight_utils.zlog("starting sync job, wait for completion {1}:\n\t{0}".format(sync_cmd, kwargs['wait']),"INFO")
-            ret = zettaknight_utils.spawn_job(sync_cmd, kwargs['wait'])
-        else:
-            ret = {}
-            ret[dataset] = {}
-            ret[dataset]['Snapshot sync'] = zettaknight_utils.spawn_job(sync_cmd, kwargs['wait'])
-    except Exception as e:
-        zettaknight_utils.zlog("{0}".format(e),"CRITICAL")
-        sys.exit(1)
+    if str(inspect.stack()[1][3]) is 'sync_all':
+        ret = zettaknight_utils.spawn_job(sync_cmd)
+    else:
+        ret = {}
+        ret[dataset] = {}
+        ret[dataset]['Snapshot sync'] = zettaknight_utils.spawn_job(sync_cmd)
     
     return ret
  
@@ -487,28 +466,24 @@ def sync_all():
     '''
     
     ret = {}
-    
+	
     if zettaknight_globs.help_flag:
         ret = """Sync All:
 
     Syncs snapshots for all defined datasets.
-    
-    Datasets to sync and remote targets are pulled from the Zettaknight configuration files.
+	
+	Datasets to sync and remote targets are pulled from the Zettaknight configuration files.
 
-    Usage:
-        zettaknight sync_all """
+	Usage:
+		zettaknight sync_all """
 
         return ret
 
-        
+		
     protocol = "ssh"
     
-    sync_list = []
-    index = 1
-    list_pos = 0
-	
-	
-    for dataset in zettaknight_globs.zfs_conf.iterkeys():
+    for dataset in zettaknight_globs.zfs_conf.iterkeys():            
+        ret[dataset] = {}
         if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
             if zettaknight_globs.zfs_conf[dataset]['snap']:
                 if 'remote_server' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
@@ -521,44 +496,13 @@ def sync_all():
                                     pull_snap = False
                             else:
                                 pull_snap = False
-
+                                                            
                         except KeyError:
                             pull_snap = False
                             pass    
-                            
-                        kwargs = {}
-                        kwargs['dataset'] = dataset
-                        kwargs['remote_ssh'] = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], remote_server)
-                        kwargs['identity_file'] = zettaknight_globs.identity_file
-                        kwargs['pull_snap'] = pull_snap
-                        kwargs['wait'] = False
                         
-                        
-                        if 'dataset' and 'remote_ssh' in kwargs.iterkeys():
-                            sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, kwargs['dataset'], kwargs['remote_ssh'])
-                        else:
-                            raise Exception("dataset and remote_ssh are required kwargs for sync")
-    
-                        if 'identity_file' in kwargs.iterkeys():
-                            sync_cmd = "{0} -i {1}".format(sync_cmd, kwargs['identity_file'])
-                        if 'pull_snap' in kwargs.iterkeys():
-                            if kwargs['pull_snap']:
-                                sync_cmd = "{0} -p".format(sync_cmd)
-                        if 'priority' in kwargs.iterkeys():
-                            sync_cmd = "{0} -n {1}".format(sync_cmd, kwargs['priority'])
-                            
-                        if sync_cmd:
-                            sync_list.append(sync_cmd)
-
-    
-    job_list = zettaknight_utils.spawn_jobs(sync_list)
-    ret[zettaknight_globs.fqdn] = {}
-	
-    for job in job_list:
-        ret[zettaknight_globs.fqdn]['Snapshot sync job {0}'.format(index)] = job_list[list_pos]
-        index += 1
-        list_pos += 1
-
+                        ret[dataset]['Snapshot sync with {0}'.format(remote_server)] = sync(dataset, "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], remote_server), zettaknight_globs.identity_file, pull_snap)
+                    
     return ret
  
 def rename_dataset(**kwargs):
