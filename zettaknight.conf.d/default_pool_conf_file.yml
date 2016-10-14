@@ -1,0 +1,11 @@
+#<pool_name>:
+#  contact: <myemail@list.something>
+#  ashift: 9
+#  disk_list: "/path/to/file.txt"
+#  raid: "3+0"
+#  recordsize: 1M
+#  luks: 'False'
+#  compression:
+#    algorithm: lz4
+
+#<second_pool>:

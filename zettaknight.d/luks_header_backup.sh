@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 version="1.3"
 
@@ -56,7 +74,7 @@ function check_previous () {
         local exit_status=$?
         if ! [ $exit_status == 0 ]; then
             echo -e "\n${exit_status} : $@"
-            clean_up
+            #clean_up
             exit 1
         fi
 }
@@ -106,6 +124,7 @@ done
 
 #has to be declared after getopts statement, needs var $remote_ssh
 remote_host=$(echo ${remote_ssh} | cut -d "@" -f2)
+cryptsetup="/sbin/cryptsetup"
 
 #if no options are selected, show help
 if [ $local_only_flag == 0 ] && [ $remote_backup_flag == 0 ]; then
@@ -158,14 +177,16 @@ fi
 while read line; do
     disk=$(echo $line | awk '{print $2}')
     luks_name=$(echo $disk | sed 's/[/]//g')
-    luks_backup_file="${local_backup_dir}${date_time}_${luks_name}_luks_header_backup"
-
+    #luks_backup_file="${local_backup_dir}${date_time}_${luks_name}_luks_header_backup"
+    luks_backup_file="${local_backup_dir}${luks_name}"
+        
     if ! [[ -z "$disk" ]]; then
-        sudo cryptsetup luksHeaderBackup $disk --header-backup-file "$luks_backup_file"
-        check_previous "sudo cryptsetup luksHeaderBackup $disk --header-backup-file "$luks_backup_file""
-        echo "created $luks_backup_file"
-
+        sudo $cryptsetup luksHeaderBackup $disk --header-backup-file "$luks_backup_file"
+        if [ $? == 0 ]; then
+            echo "created $luks_backup_file"
+        fi
     fi
+
 done < "/etc/crypttab"
 
 if [ $remote_backup_flag == 1 ]; then

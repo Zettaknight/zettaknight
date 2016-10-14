@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 version="1.0"
 
@@ -40,16 +58,16 @@ while getopts "s:m:r:a::?" OPTION
 do
          case $OPTION in
                 s)
-                    email_subject=$OPTARG
+                    email_subject="$OPTARG"
                     ;;
                 m)
-                    email_body=$OPTARG
+                    email_body="$OPTARG"
                     ;;
                 r)
-                    email_recipient=$OPTARG
+                    email_recipient="$OPTARG"
                     ;;
                 a)
-                    email_attachment=$OPTARG
+                    email_attachment="$OPTARG"
                     email_attachment_flag=1
                     ;;
                 :)
@@ -78,9 +96,8 @@ if ! which mailx &> /dev/null; then
 fi
 
 if [ -f "$email_body" ]; then
-    echo "message body cannot be a file, must be sent as an attachment using -a"
-    show_help
-    exit 1
+    echo "noticed message body is a file, using cat to display the contents of the message"
+    email_body=$(cat $email_body) #this will get executed in the following block
 fi
 
 #if [ $email_attachment_flag == 1 ]; then
@@ -89,8 +106,9 @@ fi
 #else
 
 echo "sending mail to $email_recipient"
-cat <<EOF | mailx -s "$email_subject" $email_recipient
+cat <<EOF | mailx -s "$email_subject" "$email_recipient"
 $email_body
 EOF
+check_previous "failed to send email to $email_recipient"
 
 #fi

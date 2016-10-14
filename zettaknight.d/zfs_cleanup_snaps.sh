@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 version="0.0.12"
 
@@ -24,12 +42,11 @@ EOF
 }
 
 function check_previous () {
-		local exit_status=$?
-		if ! [ $exit_status == 0 ]; then
-			echo "${exit_status} : $@"
-			clean_up
-			exit 1
-		fi
+                local exit_status=$?
+                if ! [ $exit_status == 0 ]; then
+                        echo "${exit_status} : $@"
+                        exit 1
+                fi
 }
 
 function ssh_over () {
@@ -78,9 +95,30 @@ if [ -z $day_keep ] || [ -z $dataset ]; then #both arguments are required, exit 
         exit 1
 fi
 
+##################### check/create lockfile ######################
+##################################################################
+
+running_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+Local_output_dir="$running_dir"
+lock_file=$(echo "cleanup_snap.${dataset}.lock" | tr -d "/")
+lock_file_path=${Local_output_dir}/${lock_file}
+
+if [[ -f "$lock_file_path" ]]; then
+    echo "$lock_file_path exists for $local_dataset, snap cleanup process cannot continue"
+    exit 1
+else
+    touch "$lock_file_path"
+    check_previous failed to create $lock_file_path
+fi
+
+trap "{ rm -f $lock_file_path; exit; }" INT TERM EXIT
+##################################################################
+##################################################################
+
+
 echo "$dataset: destroying snapshots older than $day_keep days"
 
-for i in $($zfs list -H -o name,creation -t snapshot | grep -w $dataset | awk '{print $1"@"$3"@"$4"@"$5"@"$6}'); do
+for i in $($zfs list -r -H -o name,creation -t snapshot "$dataset" | awk '{print $1"@"$3"@"$4"@"$5"@"$6}'); do
     snapshot=$(echo "$i" | awk 'BEGIN {FS="@"}{print $1"@"$2}')
     snapday=$(echo "$i" | awk 'BEGIN {FS="@"}{print $3" "$4" "$5" "$6}')
     snapsecs=$(date --date="$snapday" +%s)
@@ -90,12 +128,12 @@ for i in $($zfs list -H -o name,creation -t snapshot | grep -w $dataset | awk '{
     sec_old=$(( $todaysecs - $snapsecs ))
     day_old=$(( $sec_old / 86400 ))
 
-    if [[ $day_old -gt $day_keep ]]; then
+    if [[ $day_old -ge $day_keep ]]; then
         $zfs destroy $snapshot
         logger -p info "$0 destroyed snapshot $snapshot because it was older than $day_keep days."
         echo "destroyed : $snapshot"
-		else
-				echo "$snapshot is $day_old day(s) old, this does not exceed the limit of $day_keep day(s)"
+#        else
+#                echo "$snapshot is $day_old day(s) old, this does not exceed the limit of $day_keep day(s)"
     fi
 
 done

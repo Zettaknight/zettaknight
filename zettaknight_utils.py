@@ -59,38 +59,33 @@ def zlog(*args):
     ret = ""
     
     date = datetime.datetime.today()
-    
-    if level.upper() == "DEBUG":
-        level_int = 5
-    if level.upper() == "INFO":
-        level_int = 4
-    if level.upper() == "WARNING":
-        level_int = 3
-    if level.upper() == "ERROR":
-        level_int = 2
-    if level.upper() == "CRITICAL":
-        level_int = 1
         
     #test if level_zlog in globs is a string or int
-    if not isinstance(zettaknight_globs.level_zlog, int):
-        if zettaknight_globs.level_zlog == "DEBUG":
-            zettaknight_globs.level_zlog = 5
-        if zettaknight_globs.level_zlog == "INFO":
-            zettaknight_globs.level_zlog = 4
-        if zettaknight_globs.level_zlog == "WARNING":
-            zettaknight_globs.level_zlog = 3
-        if zettaknight_globs.level_zlog == "ERROR":
-            zettaknight_globs.level_zlog = 2
-        if zettaknight_globs.level_zlog == "CRITICAL":
-            zettaknight_globs.level_zlog = 1
+    if 'level_zlog' not in zettaknight_globs.zettaknight_conf.iterkeys():
+        level_int = 4
     
-    if zettaknight_globs.level_zlog >= 5:
+    else:
+
+        if not isinstance(zettaknight_globs.zettaknight_conf['level_zlog'], int):
+        
+            if zettaknight_globs.zettaknight_conf['level_zlog'] == "DEBUG":
+                level_int = 5
+            if zettaknight_globs.zettaknight_conf['level_zlog'] == "INFO":
+                level_int = 4
+            if zettaknight_globs.zettaknight_conf['level_zlog'] == "WARNING":
+                level_int = 3
+            if zettaknight_globs.zettaknight_conf['level_zlog'] == "ERROR":
+                level_int = 2
+            if zettaknight_globs.zettaknight_conf['level_zlog'] == "CRITICAL":
+                level_int = 1
+    
+    if level_int >= 5:
     
         if level.upper() == "DEBUG":
             level = printcolors("{0}".format(level.upper()), "OKBLUE")
             ret = "{0} {1} {2}".format(date, level, message)
     
-    if zettaknight_globs.level_zlog >= 4:
+    if level_int >= 4:
     
         if level.upper() == "INFO":
             level = printcolors("{0}".format(level.upper()), "OKBLUE")
@@ -100,17 +95,17 @@ def zlog(*args):
             level = printcolors("{0}".format(level.upper()), "OKGREEN")
             ret = "{0} {1} {2}".format(date, level, message)
         
-    if zettaknight_globs.level_zlog >= 3:
+    if level_int >= 3:
         if level.upper() == "WARNING":
             level = printcolors("{0}".format(level.upper()), "WARNING")
             ret = "{0} {1} {2}".format(date, level, message)
         
-    if zettaknight_globs.level_zlog >= 2:
+    if level_int >= 2:
         if level.upper() == "ERROR":
             level = printcolors("{0}".format(level.upper()), "FAIL")
             ret = "{0} {1} {2}".format(date, level, message)
         
-    if zettaknight_globs.level_zlog >= 1:
+    if level_int >= 1:
         if level.upper() == "CRITICAL":
             level = printcolors("{0}".format(level.upper()), "HEADER")
             ret = "{0} {1} {2}".format(date, level, message)
@@ -202,6 +197,8 @@ def mail_out(email_message, email_subject, email_recipient):
     
  
 def parse_output(out_dict):
+
+    zlog("parse_output started, dict obj passed:\n\t{0}".format(out_dict), "DEBUG")
     
     '''
     accepts information in the following format 
@@ -214,8 +211,8 @@ def parse_output(out_dict):
     handler = logging.handlers.SysLogHandler(address = '/dev/log')
     Zlogger.addHandler(handler)
 
-    if zettaknight_globs.mm_flag:
-        zettaknight_globs.nocolor_flag = True
+#    if zettaknight_globs.mm_flag:
+#        zettaknight_globs.nocolor_flag = True
 
     for dataset in out_dict.iterkeys():
         json_out = {}
@@ -267,11 +264,11 @@ def parse_output(out_dict):
             global_ret = "{0}{1}\n".format(global_ret, msg)
             
         print(global_ret)
-        if zettaknight_globs.mm_flag:
-            mm_msg = re.sub("[├─┬┐]", "", global_ret)
-            mm_msg = re.sub("%", " percent", mm_msg)
-            mm_msg = re.sub("    ", "", mm_msg)
-            mm_post(mm_msg)
+ #       if zettaknight_globs.mm_flag:
+ #           mm_msg = re.sub("[├─┬┐]", "", global_ret)
+ #           mm_msg = re.sub("%", " percent", mm_msg)
+ #           mm_msg = re.sub("    ", "", mm_msg)
+ #           mm_post(mm_msg)
         
         if zettaknight_globs.mail_flag or mail_this:
             global_ret = "Zettaknight:\n{0}{1}".format(a, global_ret)
@@ -279,10 +276,10 @@ def parse_output(out_dict):
                 contact = zettaknight_globs.zfs_conf[dataset]['contact']
             except KeyError:
                 contact = zettaknight_globs.default_contact_info
- 
+
             mail_sub = re.sub("[├─┬┐]", "", a)
             mail_msg = re.sub("[├─┬┐]", "", global_ret) #re.sub = regular expression substitution (sed)
-            
+
             send_mail = mail_out(mail_msg, "Job report for Dataset: {0}, on {1}".format(dataset, zettaknight_globs.fqdn), contact)
  
     return global_ret
@@ -993,6 +990,7 @@ def backup_files(*args):
     ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store]['0'] = {}
     ret[zettaknight_globs.fqdn][zettaknight_globs.zettaknight_store]['1'] = {}
     
+    
     zettaknight_store = zettaknight_globs.zettaknight_store
     
     if args:
@@ -1095,11 +1093,8 @@ def create_crond_file():
             cron_monitor_line = update_crond(cron_monitor, everyhour=1, minute=0)
             zlog("{0} --> {1}".format(cron_monitor_line, myfile), "DEBUG")
             myfile.write("{0}\n".format(cron_monitor_line))
-
             
-            parallel = _str_to_bool(zettaknight_globs.parallel)
-            
-            if parallel:
+            if _str_to_bool(zettaknight_globs.zettaknight_conf['parallel']):
                 sync_monitor = "root {0}/zettaknight.py mail_error sync_all parallel=True &> /dev/null".format(zettaknight_globs.base_dir)
             else:
                 sync_monitor = "root {0}/zettaknight.py mail_error sync_all &> /dev/null".format(zettaknight_globs.base_dir)
@@ -1117,6 +1112,11 @@ def create_crond_file():
             zpool_iostat_line = update_crond(zpool_iostat, everyminute=5)
             zlog("{0} --> {1}".format(zpool_iostat_line, myfile), "DEBUG")
             myfile.write("{0}\n".format(zpool_iostat_line))
+            
+            enforce_config_run = "root {0}/zettaknight.py mail_error enforce_config &> /dev/null".format(zettaknight_globs.base_dir)
+            enforce_config_run_line = update_crond(enforce_config_run, everyminute=10)
+            zlog("{0} --> {1}".format(enforce_config_run_line, myfile), "DEBUG")
+            myfile.write("{0}\n".format(enforce_config_run_line))
         
         with open(crond_zettaknight, "r") as myfile:
         
@@ -1241,6 +1241,9 @@ def create_crond_file():
                                 
                                 zlog("{0} --> {1}".format(zpool_iostat_line, zettaknight_globs.crond_zettaknight), "DEBUG")
                                 f.write("{0}\n".format(zpool_iostat_line))
+                                
+                                zlog("{0} --> {1}".format(enforce_config_run_line, zettaknight_globs.crond_zettaknight), "DEBUG")
+                                f.write("{0}\n".format(enforce_config_run_line))
                                 
                                 
                                 f.close()
@@ -1370,20 +1373,6 @@ def install_hpnssh(**kwargs):
     ret[zettaknight_globs.fqdn]['install hpnssh'] = spawn_job(hpnssh_cmd)
     
     return ret
- 
-def create_store(store):
-    '''
-    this function is designed to create the zfs dataset necessary for zettaknight to pass
-    it's configuration files around to non-primary nodes
-    '''
-    
-    if not store:
-        store = ""
-    
-    
-    
-#def check_dataset_exists(dataset):
-
 
 def _str_to_bool(var):
     if isinstance(var, bool):
@@ -1396,7 +1385,6 @@ def _str_to_bool(var):
             return False
             
     return None
-    
     
 def mm_post(message):
     '''

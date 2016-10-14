@@ -1,4 +1,22 @@
 #!/bin/bash
+#
+#    Copyright (c) 2015-2016 Matthew Carter, Ralph M Goodberlet.
+#
+#    This file is part of Zettaknight.
+#
+#    Zettaknight is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Zettaknight is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Zettaknight.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 version="1.2"
 
@@ -19,14 +37,14 @@ USAGE:
 $0 [pf]
 
 DESCRIPTION:
-	$(basename $0) is used to delete zfs zpools. If the zpool was created on a luks container,
-	that container will be closed and the corresponding entry from /etc/crypttab will
-	be removed. If an NFS export was shared via /etc/exports, the corresponding entry will be commented
-	out.
+        $(basename $0) is used to delete zfs zpools. If the zpool was created on a luks container,
+        that container will be closed and the corresponding entry from /etc/crypttab will
+        be removed. If an NFS export was shared via /etc/exports, the corresponding entry will be commented
+        out.
 
 OPTIONS:
-	-p zpool name to be destroyed ($zpool_name)  --required
-	-f (force) option is provided for automation purposes, without guarantees. Use at your own risk.
+        -p zpool name to be destroyed ($zpool_name)  --required
+        -f (force) option is provided for automation purposes, without guarantees. Use at your own risk.
 EOF
 }
 
