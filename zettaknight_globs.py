@@ -35,7 +35,7 @@ import datetime
 
 
 #zettaknight's current version
-version = "0.0.9"
+version = "0.1"
 
 #version of python required by zettaknight
 required_python_version = "2.x"
