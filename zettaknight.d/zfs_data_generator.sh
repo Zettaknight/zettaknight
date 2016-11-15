@@ -33,13 +33,7 @@ setopts var "-p|--zpool" "zpool" "zpool to show iostat data for, if empty, all p
 
 zpool="/sbin/zpool"
 
-if [ -z $zpool ]; then
-    mystring="$($zpool list -H -o name)"
-else
-    mystring="$zpool"
-fi
-
-for pool in $mystring; do
+for pool in $($zpool list -H -o name); do
     if ! [ -z "$pool" ]; then
         date_log=$(date +'%Y%m%d%H%M%S')
         human_date_log=$(date +'%Y-%m-%d_%H.%M.%S')
