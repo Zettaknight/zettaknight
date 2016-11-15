@@ -1,0 +1,11 @@
+#sync_all, this option defines if syncs complete in parallel or sequential
+parallel: False
+
+#enforce configuration, even if the config file has not been changed.
+config_enforcement: False
+
+#enforce zpool configurations, even if the zpool conf file has not changed
+zpool_config_enforcement: False
+
+#variable to determine the logging level for zlog
+level_zlog: "WARNING"

@@ -1,0 +1,24 @@
+#defaults:
+#  contact: zfs_admin@lists.clemson.edu
+#  quota: none
+#  refquota: none
+#  refreservation: none
+#  reservation: none
+#  retention: '2'
+#  secure: 'True'
+#  snap:
+#    dgr:
+#      10.10.10.1: my.dgr.server
+#    interval:
+#    - hour: '10'
+#    - minute: '29'
+#    backup_server:
+#    - server:'<path>'  
+#    remote_server:
+#    - 10.10.10.1
+#    - example.myserver.me
+#    timeout: 48
+#    translate: <remote_zfs_dataset/name>
+#  user: root
+  
+#<zpool_name>/<example_dataset_name>:
