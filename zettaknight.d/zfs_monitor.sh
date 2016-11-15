@@ -346,9 +346,9 @@ for pool in $($zpool list -o name -H); do
     echo -e "\nchecking for errors on disks currently ONLINE for $pool"
     #disk_err_array=()
 
+    scrub_flag=0 #if tripped, run a scrub of the pool
+
     while read line; do
-    
-            scrub_flag=0 #if tripped, run a scrub of the pool
 
             disk=$(echo "$line" | awk '{print $1}')
             read_err=$(echo "$line" | awk '{print $3}')
