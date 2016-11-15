@@ -25,6 +25,7 @@ import re
 import sys
 import fileinput
 import os
+import json
  
 #from zettaknight import *
 import zettaknight_utils
@@ -62,6 +63,9 @@ def nuke(pool, force=True):
     return ret
     
 def zfs_maintain(dset=False):
+
+    zettaknight_utils.zlog("{0} object passed to [zfs_maintain]:\n\t{1}".format(type(dset), dset),"DEBUG")
+
     '''
     The zfs_maintain function reads in dataset and maintenance requirements from /opt/clemson/zfs_scripts/maintain.conf
 
@@ -107,27 +111,191 @@ def zfs_maintain(dset=False):
                 
         ret[dataset] = {}
         
+        #return config file
+        ret[dataset]['Config'] = {0: str(zettaknight_globs.zfs_conf[dataset])}
+        
         ret[dataset]['Cleanup'] = cleanup_snaps(dataset, zettaknight_globs.zfs_conf[dataset]['retention'])
         
         if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
-            ret[dataset]['snapshot'] = create_snap(dataset, "quiet")
+            if 'translate' in zettaknight_globs.zfs_conf[dataset]['snap']:
+                if zettaknight_globs.zfs_conf[dataset]['snap']['translate']:
+                
+                    if 'remote_server' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
+                    
+                        for remote_server in zettaknight_globs.zfs_conf[dataset]['snap']['remote_server']:
+                
+                            remote_ssh = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], remote_server)
+                
+                            ret[dataset][remote_server] = cleanup_remote_snaps(zettaknight_globs.zfs_conf[dataset]['snap']['translate'], zettaknight_globs.zfs_conf[dataset]['retention'], remote_ssh, zettaknight_globs.identity_file)
         
-        if zettaknight_globs.zfs_conf[dataset]['quota']:
-            ret[dataset]['Quota'] = set_quota(dataset, zettaknight_globs.zfs_conf[dataset]['quota'])
-
-        if zettaknight_globs.zfs_conf[dataset]['refquota']:
-            ret[dataset]['Refquota'] = set_refquota(dataset, zettaknight_globs.zfs_conf[dataset]['refquota'])
-
-        if zettaknight_globs.zfs_conf[dataset]['reservation']:
-            ret[dataset]['Reservation'] = set_reservation(dataset, zettaknight_globs.zfs_conf[dataset]['reservation'])
-
-        if zettaknight_globs.zfs_conf[dataset]['refreservation']:
-            ret[dataset]['Refreservation'] = set_refreservation(dataset, zettaknight_globs.zfs_conf[dataset]['refreservation'])
-
+            ret[dataset]['snapshot'] = create_snap(dataset, "quiet")
+    
+    #ret[zettaknight_globs.fqdn] = {}
+    conf_out = enforce_config()
+    #ret[zettaknight_globs.fqdn]['enforce_config'] = conf_out[zettaknight_globs.fqdn]['enforce_config']
+    #ret[zettaknight_globs.fqdn]['enforce_config'] = enforce_config()
 
     #print(ret)
     #parse_output(ret)
     return ret
+    
+    
+def _touch(file_path):
+
+    '''
+    function to replicate touch
+    '''
+
+    try:
+    
+        with open(file_path, 'a'):
+        
+            zettaknight_utils.zlog("touching file {0}".format(file_path), "DEBUG")
+            os.utime(file_path, None)
+            return True
+            
+    except Exception as e:
+    
+        zettaknight_utils.zlog("{0}".format(e), "ERROR")
+        return False
+
+def enforce_config(**kwargs):
+
+
+    force = False #by default, enforce config will respect mtime
+
+    if 'force' in kwargs.iterkeys() or zettaknight_utils._str_to_bool(zettaknight_globs.zettaknight_conf['config_enforcement']) is True:
+        force = True
+
+
+    ret = {}
+    ret[zettaknight_globs.fqdn] = {}
+    
+    #check if file has been modified, if not, do nothing.
+    mtime = os.path.getmtime(zettaknight_globs.config_file_new)
+    mtime_file = zettaknight_globs.mtime_file
+
+    
+    try:
+    
+        if not os.path.isfile(mtime_file):
+                
+                zettaknight_utils.zlog("creating {0}".format(mtime_file), "DEBUG")
+                _touch(mtime_file)
+            
+    except Exception as e:
+    
+        zettaknight_utils.zlog("cannot create file {0}, setting FORCE attribute".format(mtime_file), "WARNING")
+        force = True
+    
+    
+    try:
+            
+        if mtime >= os.path.getmtime(mtime_file) or force is True:
+        
+            #builds out defined datasets if they don't already exist
+            zettaknight_utils.zlog("[enforce_config] starting build_out_config", "DEBUG")
+            out0 = build_out_config()
+            ret[zettaknight_globs.fqdn] = out0[zettaknight_globs.fqdn]
+            
+            for dataset in zettaknight_globs.zfs_conf.iterkeys():
+                        
+                ret[dataset] = {}
+
+                if zettaknight_globs.zfs_conf[dataset]['quota']:
+                    ret[dataset]['Quota'] = set_quota(dataset, zettaknight_globs.zfs_conf[dataset]['quota'])
+
+                if zettaknight_globs.zfs_conf[dataset]['refquota']:
+                    ret[dataset]['Refquota'] = set_refquota(dataset, zettaknight_globs.zfs_conf[dataset]['refquota'])
+
+                if zettaknight_globs.zfs_conf[dataset]['reservation']:
+                    ret[dataset]['Reservation'] = set_reservation(dataset, zettaknight_globs.zfs_conf[dataset]['reservation'])
+
+                if zettaknight_globs.zfs_conf[dataset]['refreservation']:
+                    ret[dataset]['Refreservation'] = set_refreservation(dataset, zettaknight_globs.zfs_conf[dataset]['refreservation'])
+            
+            zettaknight_utils.zlog("updating {0}".format(mtime_file), "INFO")
+            _touch(mtime_file)
+                
+        else:
+            
+            
+            ret[zettaknight_globs.fqdn]['enforce_config'] = {0: "no changes have been made to {0}".format(zettaknight_globs.config_file_new)}
+            
+    except Exception as e:
+    
+        zettaknight_utils.zlog("{0}".format(e), "ERROR")
+        ret[zettaknight_globs.fqdn]['enforce_config'] = {1: e}
+    
+    return ret
+
+    
+def enforce_zpool_config(**kwargs):
+
+
+    force = False #by default, enforce config will respect mtime
+
+    if 'force' in kwargs.iterkeys() or zettaknight_utils._str_to_bool(zettaknight_globs.zettaknight_conf['zpool_config_enforcement']) is True:
+        force = True
+
+
+    ret = {}
+    
+    #check if file has been modified, if not, do nothing.
+    mtime = os.path.getmtime(zettaknight_globs.pool_config_file)
+    zpool_mtime_file = zettaknight_globs.zpool_mtime_file
+
+    
+    try:
+    
+        if not os.path.isfile(zpool_mtime_file):
+                
+                zettaknight_utils.zlog("creating {0}".format(zpool_mtime_file), "DEBUG")
+                _touch(zpool_mtime_file)
+            
+    except Exception as e:
+    
+        zettaknight_utils.zlog("cannot create file {0}, setting FORCE attribute".format(zpool_mtime_file), "WARNING")
+        force = True
+    
+    
+    try:
+            
+        if mtime >= os.path.getmtime(zpool_mtime_file) or force is True:
+        
+        
+        
+            for zpool in zettaknight_globs.zpool_conf.iterkeys():
+            
+                print "zpool is {0}".format(zpool)
+            
+                if zpool:
+                
+                    ret[zpool] = {}
+                
+                    if 'quota' in zettaknight_globs.zpool_conf[zpool].iterkeys():
+                        
+                        quota = zettaknight_globs.zpool_conf[zpool]['quota']
+                        
+                        zettaknight_utils.zlog("setting quota of {0} for {1}".format(quota, zpool), "INFO")
+                        ret[zpool]['quota'] = set_quota(zpool, quota)
+            
+            zettaknight_utils.zlog("updating {0}".format(zpool_mtime_file), "INFO")
+            _touch(zpool_mtime_file)
+                
+        else:
+            
+            ret[zettaknight_globs.fqdn] = {}
+            ret[zettaknight_globs.fqdn]['enforce_zpool_config'] = {0: "no changes have been made to {0}".format(zettaknight_globs.pool_config_file)}
+            
+    except Exception as e:
+    
+        zettaknight_utils.zlog("{0}".format(e), "ERROR")
+        ret[zettaknight_globs.fqdn] = {}
+        ret[zettaknight_globs.fqdn]['enforce_zpool_config'] = {1: e}
+    
+    return ret
+
  
 def failover(dataset, remote_server=False):
     '''
@@ -422,6 +590,19 @@ def cleanup_snaps(dataset, retention):
     ret = zettaknight_utils.spawn_job(cleanup_cmd)
  
     return ret
+    
+def cleanup_remote_snaps(dataset, retention, remote_ssh, identity_file):
+
+    '''
+    '''
+    
+    if not identity_file:
+        identity_file = zettaknight_globs.identity_file
+    
+    cleanup_remote_cmd = "bash {0} -d {1} -k {2} -s {3} -i {4}".format(zettaknight_globs.cleanup_remote_script, dataset, retention, remote_ssh, identity_file)
+    ret = zettaknight_utils.spawn_job(cleanup_remote_cmd)
+    
+    return ret
  
 def sync(*args, **kwargs):
     '''
@@ -464,6 +645,12 @@ def sync(*args, **kwargs):
                 sync_cmd = "{0} -p".format(sync_cmd)
         if 'priority' in kwargs.iterkeys():
             sync_cmd = "{0} -n {1}".format(sync_cmd, kwargs['priority'])
+        if 'translate' in kwargs.iterkeys():
+            if kwargs['translate']:
+                sync_cmd = "{0} -r {1}".format(sync_cmd, kwargs['translate'])
+        if 'timeout' in kwargs.iterkeys():
+            if kwargs['timeout']:
+                sync_cmd = "{0} -t {1}".format(sync_cmd, kwargs['timeout'])
     
         if str(inspect.stack()[1][3]) is 'sync_all':
             zettaknight_utils.zlog("starting sync job:\n\t{0}".format(sync_cmd),"INFO")
@@ -485,8 +672,13 @@ def sync_all(**kwargs):
     zettaknight_utils.zlog("kwargs passed to sync_all:\n\t{0}".format(kwargs), "DEBUG")
     
     ret = {}
-    if 'parallel' in kwargs.iterkeys():
-        parallel = zettaknight_utils._str_to_bool(kwargs['parallel'])
+    
+    if 'parallel' in zettaknight_globs.zettaknight_conf.iterkeys():
+    
+        if zettaknight_globs.zettaknight_conf['parallel']:
+    
+            parallel = zettaknight_utils._str_to_bool(zettaknight_globs.zettaknight_conf['parallel'])
+        
     else:
         parallel = False
 
@@ -514,13 +706,52 @@ def sync_all(**kwargs):
 
 
     for dataset in zettaknight_globs.zfs_conf.iterkeys():
+    
+        #kwargs to be passed to sync
+        my_kwargs = {}
+        my_kwargs['dataset'] = dataset
+        my_kwargs['identity_file'] = zettaknight_globs.identity_file
+        
+        
+        if 'timeout' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
+            if zettaknight_globs.zfs_conf[dataset]['snap']['timeout']:
+                my_kwargs['timeout'] = zettaknight_globs.zfs_conf[dataset]['snap']['timeout']
+    
         if not parallel:
             ret[dataset] = {}
         if 'snap' in zettaknight_globs.zfs_conf[dataset].iterkeys():
             if zettaknight_globs.zfs_conf[dataset]['snap']:
+            
+            
+            
+                if 'backup_server' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
+                    for backup_server in zettaknight_globs.zfs_conf[dataset]['snap']['backup_server']:
+
+                        try:
+
+                            backup_host, backup_loc = backup_server.split(":", 1)
+                            
+                            if backup_host is None or backup_loc is None:
+                                raise Exception("backup_server formatted incorrectly, should be in <host>@</remote_dir>:\n\t{1}".format(backup_server))
+                                
+                            backup_ssh = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], backup_host)
+                            backup_cmd = "bash {0} -d {1} -s {2} -r {3}".format(zettaknight_globs.backup_snap_script, my_kwargs['dataset'], backup_ssh, backup_loc)
+                    
+                    
+                            if zettaknight_globs.identity_file:
+                                backup_cmd = "{0} -i {1}".format(backup_cmd, zettaknight_globs.identity_file)
+                            
+                            ret[dataset]["Backup Dump to {0}".format(backup_host)] = zettaknight_utils.spawn_job(backup_cmd)   
+                                
+                        except Exception as e:
+                            zettaknight_utils.zlog("backup_server: {0}".format(e), "ERROR")
+                            pass
+                
                 if 'remote_server' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
                     for remote_server in zettaknight_globs.zfs_conf[dataset]['snap']['remote_server']:
+                    
                         try:    
+                            
                             if str(zettaknight_globs.zfs_conf[dataset]['primary']) != str(zettaknight_globs.fqdn):
                                 if str(zettaknight_globs.zfs_conf[dataset]['primary']) == str(remote_server):
                                     pull_snap = True
@@ -532,19 +763,17 @@ def sync_all(**kwargs):
                         except KeyError:
                             pull_snap = False
                             pass    
-                            
-                        my_kwargs = {}
-                        my_kwargs['dataset'] = dataset
-                        my_kwargs['remote_ssh'] = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], remote_server)
-                        my_kwargs['identity_file'] = zettaknight_globs.identity_file
-                        my_kwargs['pull_snap'] = pull_snap
+                        
+                        remote_ssh = "{0}@{1}".format(zettaknight_globs.zfs_conf[dataset]['user'], remote_server)
+                        
+                        my_kwargs['remote_ssh'] = remote_ssh
+                        
+                        if 'translate' in zettaknight_globs.zfs_conf[dataset]['snap'].iterkeys():
+                            my_kwargs['translate'] = zettaknight_globs.zfs_conf[dataset]['snap']['translate']
+                          
+                        sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, my_kwargs['dataset'], my_kwargs['remote_ssh'])
                         
                         if parallel:
-                        
-                            if 'dataset' and 'remote_ssh' in my_kwargs.iterkeys():
-                                sync_cmd = "bash {0} -d {1} -s {2}".format(zettaknight_globs.sync_script, my_kwargs['dataset'], my_kwargs['remote_ssh'])
-                            else:
-                                raise Exception("dataset and remote_ssh are required kwargs for sync")
     
                             if 'identity_file' in my_kwargs.iterkeys():
                                 sync_cmd = "{0} -i {1}".format(sync_cmd, my_kwargs['identity_file'])
@@ -553,11 +782,17 @@ def sync_all(**kwargs):
                                     sync_cmd = "{0} -p".format(sync_cmd)
                             if 'priority' in my_kwargs.iterkeys():
                                 sync_cmd = "{0} -n {1}".format(sync_cmd, my_kwargs['priority'])
+                            if 'translate' in my_kwargs.iterkeys():
+                                if my_kwargs['translate']:
+                                    sync_cmd = "{0} -r {1}".format(sync_cmd, my_kwargs['translate'])
+                            if 'timeout' in my_kwargs.iterkeys():
+                                sync_cmd = "{0} -t {1}".format(sync_cmd, my_kwargs['timeout'])
                         
                             if sync_cmd:
                                 sync_list.append(sync_cmd)
                                 
                         else:
+                        
                             ret[dataset]['Snapshot sync with {0}'.format(remote_server)] = sync(**my_kwargs)
                             
 
