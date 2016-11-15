@@ -362,7 +362,7 @@ for pool in $($zpool list -o name -H); do
                 #disk_err_array+=("$disk")
                 
                 
-                if $zpool status $zpool_name | egrep -c "scrub in progress|resilver" &> /dev/null; then
+                if $zpool status $zpool_name | grep -v "resilvered" | egrep -c "scrub in progress|resilver" &> /dev/null; then
                 
                     echo -e "\na scrub or resliver is in progress, error correction will resume after completion"
                 
@@ -421,7 +421,7 @@ while read line; do
     
 
 
-    if $zpool status $zpool_name | egrep -c "scrub in progress|resilver" &> /dev/null; then
+    if $zpool status $zpool_name | grep -v "resilvered" | egrep -c "scrub in progress|resilver" &> /dev/null; then
     
         echo "a scrub or resilver is in progress, will resume check after it's completion"
         
