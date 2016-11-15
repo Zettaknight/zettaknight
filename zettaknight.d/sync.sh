@@ -98,6 +98,7 @@ function ssh_over () {
 
 #setopts vars
 setopts var "-d|--dataset" "local_dataset" "local_dataset to be replicated"
+setopts var "-r|--remote_dataset" "remote_dataset" "remote_dataset name to be used"
 setopts var "-s|--ssh" "remote_ssh" "Connection string for remote SSH connections, ie. root@somehost.somedomain.com"
 setopts var "-i|--identity" "identity_file" "RSA identity file to use when initiating SSH connections.  Requires full path of identity file."
 setopts var "-t|--timeout" "lock_file_exp" "if lock file still exists for -t hours, send an alert"
@@ -112,7 +113,13 @@ remote_user=$(echo ${remote_ssh} | cut -d "@" -f1)
 lock_file=$(echo "sync.${local_dataset}.lock" | tr -d "/")
 lock_file_path=${Local_output_dir}/${lock_file}
 remote_output_dir="/tmp"
-remote_dataset="$local_dataset" #if no remote pool given, assume same as $local_dataset
+
+if [ -z "$remote_dataset" ]; then
+ 
+    remote_dataset="$local_dataset" #if no remote pool given, assume same as $local_dataset
+
+fi
+
 remote_host=$(echo ${remote_ssh} | cut -d "@" -f2)
 
 if [ -z $lock_file_exp ]; then #if timeout not called set a default
@@ -160,10 +167,10 @@ fi
 
 ################## check last snapshots ##########################
 ##################################################################
-remote_snap=$(ssh_over $zfs list -r -o name -t snapshot -H "${remote_dataset}" | tail -n 1)
+remote_snap=$(ssh_over $zfs list -r -o name -t snapshot -H "${remote_dataset}" | grep "${remote_dataset}@" | tail -n 1)
 remote_last_snap=$(echo "$remote_snap" | tr -d '\r')
 #num_remote_snaps=$(ssh_over $zfs list -o name -t snapshot -H | wc -l)
-local_last_snap=$($zfs list -r -o name -t snapshot -H "${remote_dataset}" | tail -n 1)
+local_last_snap=$($zfs list -r -o name -t snapshot -H "${local_dataset}" | grep "${local_dataset}@" | tail -n 1)
 #num_local_snaps=$($zfs list -o name -t snapshot -H | wc -l)
 ##################################################################
 ##################################################################
@@ -194,18 +201,41 @@ if [[ "$pull_flag" == 0 ]]; then
         check_pipes "$zfs send -R $snap | ssh_over $remote_dataset"
         echo "Snapshot successfully shipped to $remote_host !"
     else
-        if ! [[ "$remote_last_snap" == "$local_last_snap" ]]; then
-            $zfs send -R -I "$remote_last_snap" "$local_last_snap" | ssh_over "$zfs receive -F $remote_dataset"
-            check_pipes "$zfs send -R -I $remote_last_snap $snap | ssh_over $zfs receive $remote_dataset"
-            echo "snapshot successfully shipped to $remote_host!"
+        
+        if [[ "$local_dataset" == "$remote_dataset" ]]; then #if not equal translate is in play
+        
+            if [[ "$remote_last_snap" != "$local_last_snap" ]]; then
+    
+                $zfs send -R -I "$remote_last_snap" "$local_last_snap" | ssh_over "$zfs receive -F $remote_dataset"
+                check_pipes "$zfs send -R -I $remote_last_snap $snap | ssh_over $zfs receive $remote_dataset"
+                echo "snapshot successfully shipped to $remote_host!"
+                
+            else
+            
+                echo "$local_last_snap is the last snapshot on both systems"
+                
+            fi
+            
         else
-            echo "$local_last_snap is the last snapshot on both systems"
-            #if ! [[ "$num_local_snaps" == "$num_remote_snaps" ]]; then
-            #    echo "ERROR: $num_local_snaps snapshot(s) locally --- $num_remote_snaps snapshot(s) on ${remote_host}"
-            #    exit 1
-            #else
-            #    echo "there are $num_local_snaps on both machines, filesystems are in sync"
-            #fi
+            
+            local_last_snapshot="$(basename $local_last_snap)"
+            local_last_snapshot_date="$(echo $local_last_snapshot | cut -d '@' -f 2)"
+            local_last_snapshot_dir="$(echo $local_last_snapshot | cut -d '@' -f 1)"
+            local_last_dir="$(dirname $local_last_snap)"
+            remote_last_snapshot="$(basename $remote_last_snap)"
+            remote_last_snapshot_date="$(echo $remote_last_snapshot | cut -d '@' -f 2)"
+        
+            if [[ "$local_last_snapshot_date" !=  "$remote_last_snapshot_date" ]]; then
+                
+                $zfs send -I "${local_last_dir}/${local_last_snapshot_dir}@${remote_last_snapshot_date}" "$local_last_snap" | ssh_over "$zfs receive -F $remote_dataset"
+                check_pipes $zfs send -I "${local_last_dir}/${local_last_snapshot_dir}@${remote_last_snapshot_date}" "$local_last_snap" | ssh_over "$zfs receive -F $remote_dataset"
+                echo "snapshot successfully translated from $local_last_snap to $remote_dataset on $remote_host!"
+                
+            else
+            
+                echo "$local_last_snap matches translated $remote_last_snap"
+                
+            fi
         fi
     fi
 fi

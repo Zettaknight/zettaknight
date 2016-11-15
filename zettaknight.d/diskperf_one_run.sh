@@ -52,8 +52,8 @@ function check_if_integer () {
         local var=$1
         if ! [[ $var =~ ^[-+]?[0-9]+$ ]]; then #test if input is an integer
         echo "$var is not an integer"
-                                show_help
-                exit 1
+            show_help
+            exit 1
         fi
 }
 

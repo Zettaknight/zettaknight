@@ -72,6 +72,23 @@ EOF
                                 
                                 eval $var='$val'
                                 
+                            elif [[ $"opt_type" == "int" ]]; then
+                            
+                                arg="${BASH_ARGV[$global_bash_index]}"
+                                val="${BASH_ARGV[$(( $global_bash_index - 1 ))]}"
+                                
+                                if [ "$arg" == "$val" ]; then
+                                    echo "setopts error, $arg must have a value"
+                                    exit 1
+                                fi
+                                
+                                if ! [[ $val =~ ^[-+]?[0-9]+$ ]]; then #test if integer
+                                    echo "$val for $arg is not an integer"
+                                    exit 1
+                                fi
+                                
+                                eval $var='$val'
+                                
                             elif [[ "$opt_type" == "flag" || "$opt_type" == "switch" ]]; then
                                 eval $var=1
                             else

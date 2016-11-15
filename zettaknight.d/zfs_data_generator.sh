@@ -29,10 +29,17 @@ tail_num=$((${poll_count} - 1))
 outfile="${running_dir}/${date_time}_$(basename $0)"
 
 setopts var "-f|--outfile" "outfile" "file to write results to (default:${outfile})"
+setopts var "-p|--zpool" "zpool" "zpool to show iostat data for, if empty, all pools will be shown"
 
 zpool="/sbin/zpool"
 
-for pool in $($zpool list -H -o name); do
+if [ -z $zpool ]; then
+    mystring="$($zpool list -H -o name)"
+else
+    mystring="$zpool"
+fi
+
+for pool in $mystring; do
     if ! [ -z "$pool" ]; then
         date_log=$(date +'%Y%m%d%H%M%S')
         human_date_log=$(date +'%Y-%m-%d_%H.%M.%S')
