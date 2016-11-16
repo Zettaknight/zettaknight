@@ -1257,6 +1257,9 @@ def create_crond_file():
                                 zlog("{0} --> {1}".format(enforce_config_run_line, zettaknight_globs.crond_zettaknight), "DEBUG")
                                 f.write("{0}\n".format(enforce_config_run_line))
                                 
+                                zlog("{0} --> {1}".format(enforce_zpool_config_run_line, zettaknight_globs.crond_zettaknight), "DEBUG")
+                                f.write("{0}\n".format(enforce_zpool_config_run_line))
+                                
                                 
                                 f.close()
                                 ssh.close()
