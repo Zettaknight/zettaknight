@@ -1124,12 +1124,17 @@ def create_crond_file():
             enforce_config_run_line = update_crond(enforce_config_run, everyminute=10)
             zlog("{0} --> {1}".format(enforce_config_run_line, myfile), "DEBUG")
             myfile.write("{0}\n".format(enforce_config_run_line))
+            
+            enforce_zpool_config_run = "root {0}/zettaknight.py mail_error enforce_zpool_config &> /dev/null".format(zettaknight_globs.base_dir)
+            enforce_zpool_config_run_line = update_crond(enforce_zpool_config_run, everyminute=10)
+            zlog("{0} --> {1}".format(enforce_zpool_config_run_line, myfile), "DEBUG")
+            myfile.write("{0}\n".format(enforce_zpool_config_run_line))
         
         with open(crond_zettaknight, "r") as myfile:
         
             zlog("[create_crond_file] opening file {0}".format(myfile), "DEBUG")
 
-            out = myfile.read()
+            out = myfile.read()  
         ret[zettaknight_globs.fqdn][crond_zettaknight]['0'] = "cron.d zettaknight built\n{0}".format(out)
                 
     except Exception as e:
@@ -1200,7 +1205,7 @@ def create_crond_file():
                 remote_user = zettaknight_globs.zfs_conf[dataset]['user']
                 
                 zettaknight_run = "root {0}/zettaknight.py mail_error &> /dev/null".format(zettaknight_globs.base_dir)
-                zlog("[create_crond_file] --> update_crond:\n\t{1}".format(zettaknight_run), "DEBUG")
+                zlog("[create_crond_file] --> update_crond:\n\t{0}".format(zettaknight_run), "DEBUG")
                 zettaknight_run_line = update_crond(zettaknight_run, hour=23, minute=30)
                  
                 if isinstance(tertiary, list):
