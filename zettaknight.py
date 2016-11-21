@@ -603,12 +603,13 @@ def _entry_point(argv=None):
         ret = do_prep_work()
         
     suppress_list = ["check_group_quota", "find_versions", "recover"]
+    
+    zettaknight_globs.elapsed_time = time.time() - start_time
+        
     if str(funcname) not in suppress_list:
         parse_output(ret)
-    
-    
-    elapsed_time = time.time() - start_time
-    print(printcolors("elapsed time: {0} seconds".format(elapsed_time), "WARNING"))    
+
+    print(printcolors("elapsed time: {0} seconds".format(zettaknight_globs.elapsed_time), "WARNING"))    
     return ret
         
     
