@@ -224,6 +224,7 @@ def parse_output(out_dict):
     for dataset in out_dict.iterkeys():
         json_out = {}
         json_out["dataset"] = dataset
+        json_out["elapsed time (sec)"] = zettaknight_globs.elapsed_time
         for job in out_dict[dataset].iterkeys():
             json_out["job"] = job
             for exit_status, output in out_dict[dataset][job].iteritems():
