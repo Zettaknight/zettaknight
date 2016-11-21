@@ -135,6 +135,7 @@ mail_flag = False
 mail_error_flag = False
 nocolor_flag = False
 help_flag = False
+elapsed_time = 0
 
 #default names for zpools and cifs/nfs datasets
 cifs_dset_suffix = "cifs"
