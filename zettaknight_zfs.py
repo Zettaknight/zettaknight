@@ -1036,11 +1036,11 @@ def add_dataset(dataset, **kwargs):
     ret[zettaknight_globs.fqdn] = {}
     question = False
     if 'create_config' in kwargs.iterkeys():
-        create_config = kwargs['create_config']
+        create_config = (kwargs['create_config'] == "True")
     else:
         create_config = True
     if 'nfs' in kwargs.iterkeys():
-        nfs = kwargs['nfs']
+        nfs = (kwargs['nfs'] == "True")
     else:
         nfs = True    
     #append dataset to kwargs
